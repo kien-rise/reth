@@ -528,7 +528,7 @@ mod tests {
         public_key_to_address, Account, Block, BlockBody, Transaction,
     };
     use reth_revm::{
-        database::StateProviderDatabase, test_utils::StateProviderTest, TransitionState,
+        database::StateProviderDatabase, test_utils::StateProviderTest, Database, TransitionState
     };
     use reth_testing_utils::generators::{self, sign_tx_with_key_pair};
     use revm_primitives::BLOCKHASH_SERVE_WINDOW;
