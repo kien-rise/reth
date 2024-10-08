@@ -285,6 +285,9 @@ inherits = "release"
 lto = "fat"
 
 [workspace.dependencies]
+# pevm
+pevm = { git = "https://github.com/risechain/pevm", rev = "c09f2a17a43b3e992ddc56b334b9cc3cd08c1d4e" }
+
 # reth
 op-reth = { path = "crates/optimism/bin" }
 reth = { path = "bin/reth" }

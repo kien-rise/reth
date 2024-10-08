@@ -11,6 +11,9 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+# pevm
+pevm.workspace = true
+
 # Reth
 reth-chainspec.workspace = true
 reth-ethereum-forks.workspace = true
@@ -29,8 +32,6 @@ alloy-primitives.workspace = true
 alloy-eips.workspace = true
 alloy-sol-types.workspace = true
 
-pevm = { git = "https://github.com/risechain/pevm", rev = "c09f2a17a43b3e992ddc56b334b9cc3cd08c1d4e" }
-
 [dev-dependencies]
 reth-testing-utils.workspace = true
 reth-revm = { workspace = true, features = ["test-utils"] }
@@ -43,3 +44,4 @@ alloy-consensus.workspace = true
 [features]
 default = ["std"]
 std = []
+optimism = ["pevm/optimism"]

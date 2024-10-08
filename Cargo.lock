@@ -5492,6 +5492,22 @@ checksum = "b410bbe7e14ab526a0e86877eb47c6996a2bd7746f027ba551028c925390e4e9"
 
 [[package]]
 name = "op-alloy-consensus"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21aad1fbf80d2bcd7406880efc7ba109365f44bbb72896758ddcbfa46bf1592c"
+dependencies = [
+ "alloy-consensus 0.3.6",
+ "alloy-eips 0.3.6",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-serde 0.3.6",
+ "derive_more 1.0.0",
+ "serde",
+ "spin",
+]
+
+[[package]]
+name = "op-alloy-consensus"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ea7162170c6f3cad8f67f4dd7108e3f78349fd553da5b8bebff1e7ef8f38896"
@@ -5524,6 +5540,20 @@ dependencies = [
 
 [[package]]
 name = "op-alloy-network"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "783ce4ebc0a994eee2188431511b16692b704e1e8fff0c77d8c0354d3c2b1fc8"
+dependencies = [
+ "alloy-consensus 0.3.6",
+ "alloy-network 0.3.6",
+ "alloy-primitives",
+ "alloy-rpc-types-eth 0.3.6",
+ "op-alloy-consensus 0.2.12",
+ "op-alloy-rpc-types 0.2.12",
+]
+
+[[package]]
+name = "op-alloy-network"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d113b325527ba7da271a8793f1c14bdf7f035ce9e0611e668c36fc6812568c7f"
@@ -5532,8 +5562,8 @@ dependencies = [
  "alloy-network 0.4.2",
  "alloy-primitives",
  "alloy-rpc-types-eth 0.4.2",
- "op-alloy-consensus",
- "op-alloy-rpc-types",
+ "op-alloy-consensus 0.4.0",
+ "op-alloy-rpc-types 0.4.0",
 ]
 
 [[package]]
@@ -5548,9 +5578,27 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde 0.4.2",
  "derive_more 1.0.0",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.4.0",
  "op-alloy-genesis",
  "serde",
+]
+
+[[package]]
+name = "op-alloy-rpc-types"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e281fbfc2198b7c0c16457d6524f83d192662bc9f3df70f24c3038d4521616df"
+dependencies = [
+ "alloy-eips 0.3.6",
+ "alloy-network-primitives 0.3.6",
+ "alloy-primitives",
+ "alloy-rpc-types-eth 0.3.6",
+ "alloy-serde 0.3.6",
+ "cfg-if",
+ "hashbrown 0.14.5",
+ "op-alloy-consensus 0.2.12",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5565,7 +5613,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth 0.4.2",
  "alloy-serde 0.4.2",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.4.0",
  "serde",
  "serde_json",
 ]
@@ -5589,6 +5637,7 @@ name = "op-reth"
 version = "1.1.0"
 dependencies = [
  "clap",
+ "pevm",
  "reth-cli-util",
  "reth-node-builder",
  "reth-optimism-chainspec",
@@ -5832,6 +5881,9 @@ dependencies = [
  "bitvec",
  "clap",
  "dashmap 6.1.0",
+ "op-alloy-consensus 0.2.12",
+ "op-alloy-network 0.2.12",
+ "op-alloy-rpc-types 0.2.12",
  "reqwest",
  "revm",
  "serde",
@@ -7041,7 +7093,7 @@ dependencies = [
  "arbitrary",
  "bytes",
  "modular-bitfield",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.4.0",
  "proptest",
  "proptest-arbitrary-interop",
  "rand 0.8.5",
@@ -8402,7 +8454,7 @@ dependencies = [
  "alloy-primitives",
  "derive_more 1.0.0",
  "once_cell",
- "op-alloy-rpc-types",
+ "op-alloy-rpc-types 0.4.0",
  "reth-chainspec",
  "reth-ethereum-forks",
  "reth-network-peers",
@@ -8478,7 +8530,7 @@ dependencies = [
  "alloy-eips 0.4.2",
  "alloy-genesis",
  "alloy-primitives",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.4.0",
  "reth-chainspec",
  "reth-ethereum-forks",
  "reth-evm",
@@ -8520,7 +8572,7 @@ dependencies = [
  "eyre",
  "jsonrpsee",
  "jsonrpsee-types",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.4.0",
  "op-alloy-rpc-types-engine",
  "parking_lot 0.12.3",
  "reqwest",
@@ -8612,9 +8664,9 @@ dependencies = [
  "alloy-rpc-types-eth 0.4.2",
  "derive_more 1.0.0",
  "jsonrpsee-types",
- "op-alloy-consensus",
- "op-alloy-network",
- "op-alloy-rpc-types",
+ "op-alloy-consensus 0.4.0",
+ "op-alloy-network 0.4.0",
+ "op-alloy-rpc-types 0.4.0",
  "parking_lot 0.12.3",
  "reqwest",
  "reth-chainspec",
@@ -8725,8 +8777,8 @@ dependencies = [
  "k256",
  "modular-bitfield",
  "once_cell",
- "op-alloy-consensus",
- "op-alloy-rpc-types",
+ "op-alloy-consensus 0.4.0",
+ "op-alloy-rpc-types 0.4.0",
  "pprof",
  "proptest",
  "proptest-arbitrary-interop",
