@@ -285,7 +285,7 @@ lto = "fat"
 
 [workspace.dependencies]
 # pevm
-pevm = { git = "https://github.com/risechain/pevm", rev = "c09f2a17a43b3e992ddc56b334b9cc3cd08c1d4e" }
+pevm = { git = "https://github.com/risechain/pevm", rev = "f9ec57dc1ce13426070369d0846c5560d35e38c7" }
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
