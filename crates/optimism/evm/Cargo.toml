@@ -32,6 +32,7 @@ reth-optimism-consensus.workspace = true
 reth-optimism-chainspec.workspace = true
 reth-optimism-forks.workspace = true
 reth-optimism-primitives.workspace = true
+reth-revm = { workspace = true, optional = true }
 
 # revm
 revm.workspace = true
@@ -73,6 +74,7 @@ std = [
     "reth-consensus-common/std",
 ]
 optimism = [
+    "dep:reth-revm",
     "reth-execution-types/optimism",
     "reth-optimism-consensus/optimism",
     "revm/optimism",
