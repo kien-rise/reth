@@ -21,4 +21,5 @@ alloy-consensus.workspace = true
 eyre.workspace = true
 
 [features]
+default = ["optimism"]
 optimism = []
