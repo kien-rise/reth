@@ -112,6 +112,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
             invalid: Default::default(),
             new_transaction_receiver: Some(self.new_transaction_notifier.subscribe()),
             skip_blobs: false,
+            next_nonce_of_sender: Default::default(),
         }
     }
 

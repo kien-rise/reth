@@ -1,5 +1,5 @@
 use crate::{
-    identifier::TransactionId, pool::pending::PendingTransaction, PoolTransaction,
+    identifier::{SenderId, TransactionId}, pool::pending::PendingTransaction, PoolTransaction,
     TransactionOrdering, ValidPoolTransaction,
 };
 use alloy_primitives::B256 as TxHash;
@@ -89,6 +89,8 @@ pub(crate) struct BestTransactions<T: TransactionOrdering> {
     pub(crate) new_transaction_receiver: Option<Receiver<PendingTransaction<T>>>,
     /// Flag to control whether to skip blob transactions (EIP4844).
     pub(crate) skip_blobs: bool,
+    /// Mapping from SenderId to nonce, used to prevent nonce gaps
+    pub(crate) next_nonce_of_sender: BTreeMap<SenderId, u64>,
 }
 
 impl<T: TransactionOrdering> BestTransactions<T> {
@@ -136,7 +138,13 @@ impl<T: TransactionOrdering> BestTransactions<T> {
             //  same logic as PendingPool::add_transaction/PendingPool::best_with_unlocked
             let tx_id = *tx.id();
             if self.ancestor(&tx_id).is_none() {
-                self.independent.insert(pending_tx.clone());
+                let is_nonce_invalid = match self.next_nonce_of_sender.get(&tx_id.sender) {
+                    Some(expected_nonce) => tx_id.nonce != *expected_nonce,
+                    None => false, // because we don't have data
+                };
+                if !is_nonce_invalid {
+                    self.independent.insert(pending_tx.clone());
+                }
             }
             self.all.insert(tx_id, pending_tx);
         }
@@ -191,6 +199,8 @@ impl<T: TransactionOrdering> Iterator for BestTransactions<T> {
                 // transactions are returned
                 self.mark_invalid(&best.transaction)
             } else {
+                let tx_id = best.transaction.id();
+                self.next_nonce_of_sender.insert(tx_id.sender, tx_id.next_nonce());
                 return Some(best.transaction)
             }
         }
