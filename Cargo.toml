@@ -415,7 +415,7 @@ revm = { git = "https://github.com/risechain/revm", rev = "cf599db31b5c64547ce91
 revm-primitives = { git = "https://github.com/risechain/revm", rev = "cf599db31b5c64547ce91998f18ca97522876d7c", features = [
     "std",
 ], default-features = false }
-revm-inspectors = { git = "https://github.com/risechain/revm-inspectors", rev = "348e7996ed4fa88f58d81bd136a60ea537174252" }
+revm-inspectors = { git = "https://github.com/risechain/revm-inspectors", rev = "4dc532c558e9ba731f596f28dc74d221dc1cb89a" }
 
 # eth
 alloy-chains = "0.1.35"
