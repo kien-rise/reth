@@ -5864,7 +5864,7 @@ dependencies = [
 [[package]]
 name = "pevm"
 version = "0.1.0"
-source = "git+https://github.com/risechain/pevm?rev=f9ec57dc1ce13426070369d0846c5560d35e38c7#f9ec57dc1ce13426070369d0846c5560d35e38c7"
+source = "git+https://github.com/risechain/pevm?rev=dcc7b0f9a4d7ed5f1d09d3bb96853acb3be829cf#dcc7b0f9a4d7ed5f1d09d3bb96853acb3be829cf"
 dependencies = [
  "ahash",
  "alloy-chains",
@@ -9654,7 +9654,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "14.0.3"
-source = "git+https://github.com/risechain/revm?rev=cf599db31b5c64547ce91998f18ca97522876d7c#cf599db31b5c64547ce91998f18ca97522876d7c"
+source = "git+https://github.com/risechain/revm?rev=70c21030e1bec67829ef4a23931a93208b13f1a3#70c21030e1bec67829ef4a23931a93208b13f1a3"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -9669,7 +9669,7 @@ dependencies = [
 [[package]]
 name = "revm-inspectors"
 version = "0.8.1"
-source = "git+https://github.com/risechain/revm-inspectors?rev=4dc532c558e9ba731f596f28dc74d221dc1cb89a#4dc532c558e9ba731f596f28dc74d221dc1cb89a"
+source = "git+https://github.com/risechain/revm-inspectors?rev=52168deb195ae41ff77f01805a482d75f5ba8855#52168deb195ae41ff77f01805a482d75f5ba8855"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-eth 0.4.2",
@@ -9687,7 +9687,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "10.0.3"
-source = "git+https://github.com/risechain/revm?rev=cf599db31b5c64547ce91998f18ca97522876d7c#cf599db31b5c64547ce91998f18ca97522876d7c"
+source = "git+https://github.com/risechain/revm?rev=70c21030e1bec67829ef4a23931a93208b13f1a3#70c21030e1bec67829ef4a23931a93208b13f1a3"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -9696,7 +9696,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "11.0.3"
-source = "git+https://github.com/risechain/revm?rev=cf599db31b5c64547ce91998f18ca97522876d7c#cf599db31b5c64547ce91998f18ca97522876d7c"
+source = "git+https://github.com/risechain/revm?rev=70c21030e1bec67829ef4a23931a93208b13f1a3#70c21030e1bec67829ef4a23931a93208b13f1a3"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -9715,7 +9715,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "10.0.0"
-source = "git+https://github.com/risechain/revm?rev=cf599db31b5c64547ce91998f18ca97522876d7c#cf599db31b5c64547ce91998f18ca97522876d7c"
+source = "git+https://github.com/risechain/revm?rev=70c21030e1bec67829ef4a23931a93208b13f1a3#70c21030e1bec67829ef4a23931a93208b13f1a3"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702",

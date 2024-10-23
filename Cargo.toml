@@ -286,7 +286,7 @@ lto = "fat"
 
 [workspace.dependencies]
 # pevm
-pevm = { git = "https://github.com/risechain/pevm", rev = "f9ec57dc1ce13426070369d0846c5560d35e38c7" }
+pevm = { git = "https://github.com/risechain/pevm", rev = "dcc7b0f9a4d7ed5f1d09d3bb96853acb3be829cf" }
 
 # reth
 op-reth = { path = "crates/optimism/bin" }
@@ -410,15 +410,15 @@ reth-trie-db = { path = "crates/trie/db" }
 reth-trie-parallel = { path = "crates/trie/parallel" }
 
 # revm
-revm = { git = "https://github.com/risechain/revm", rev = "cf599db31b5c64547ce91998f18ca97522876d7c", features = [
+revm = { git = "https://github.com/risechain/revm", rev = "70c21030e1bec67829ef4a23931a93208b13f1a3", features = [
     "std",
     "secp256k1",
     "blst",
 ], default-features = false }
-revm-primitives = { git = "https://github.com/risechain/revm", rev = "cf599db31b5c64547ce91998f18ca97522876d7c", features = [
+revm-primitives = { git = "https://github.com/risechain/revm", rev = "70c21030e1bec67829ef4a23931a93208b13f1a3", features = [
     "std",
 ], default-features = false }
-revm-inspectors = { git = "https://github.com/risechain/revm-inspectors", rev = "4dc532c558e9ba731f596f28dc74d221dc1cb89a" }
+revm-inspectors = { git = "https://github.com/risechain/revm-inspectors", rev = "52168deb195ae41ff77f01805a482d75f5ba8855" }
 
 # eth
 alloy-chains = "0.1.35"

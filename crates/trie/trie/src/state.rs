@@ -32,7 +32,7 @@ impl HashedPostState {
             .into_par_iter()
             .map(|(address, account)| {
                 let hashed_address = keccak256(address);
-                let hashed_account = account.info.clone().map(Into::into);
+                let hashed_account = account.info.clone().map(Account::from);
                 let hashed_storage = HashedStorage::from_plain_storage(
                     account.status,
                     account.storage.iter().map(|(slot, value)| (slot, &value.present_value)),
