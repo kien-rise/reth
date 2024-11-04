@@ -403,7 +403,7 @@ impl<T: TransactionOrdering> TxPool<T> {
         // Apply the state changes to the total set of transactions which triggers sub-pool updates.
         let updates = self.all_transactions.update(changed_senders);
         // Process the sub-pool updates
-        let update = self.process_updates(updates);
+        let update = self.process_updates(updates.iter());
         // update the metrics after the update
         self.update_size_metrics();
         update
@@ -522,11 +522,20 @@ impl<T: TransactionOrdering> TxPool<T> {
 
         match self.all_transactions.insert_tx(tx, on_chain_balance, on_chain_nonce) {
             Ok(InsertOk { transaction, move_to, replaced_tx, updates, .. }) => {
-                let UpdateOutcome { promoted, discarded } = self.process_updates(updates);
+                let has_lt = updates.iter().any(|u| u.id.nonce < transaction.id().nonce);
+                let has_ge = updates.iter().any(|u| u.id.nonce >= transaction.id().nonce);
+                if has_lt || has_ge {
+                    tracing::warn!("add_transaction: id = {:?}, has_lt = {:?}, has_ge = {:?}", transaction.id(), has_lt, has_ge);
+                }
+                let outcome_0 = self.process_updates(updates.iter().filter(|u| u.id.nonce < transaction.id().nonce));
+
+                // let UpdateOutcome { promoted, discarded } = self.process_updates(updates);
                 // replace the new tx and remove the replaced in the subpool(s)
                 self.add_new_transaction(transaction.clone(), replaced_tx.clone(), move_to);
                 // Update inserted transactions metric
                 self.metrics.inserted_transactions.increment(1);
+
+                let outcome_1 = self.process_updates(updates.iter().filter(|u| u.id.nonce >= transaction.id().nonce));
 
                 let replaced = replaced_tx.map(|(tx, _)| tx);
 
@@ -534,8 +543,8 @@ impl<T: TransactionOrdering> TxPool<T> {
                 let res = if move_to.is_pending() {
                     AddedTransaction::Pending(AddedPendingTransaction {
                         transaction,
-                        promoted,
-                        discarded,
+                        promoted: Iterator::chain(outcome_0.promoted.into_iter(), outcome_1.promoted.into_iter()).collect(),
+                        discarded: Iterator::chain(outcome_0.discarded.into_iter(), outcome_1.discarded.into_iter()).collect(),
                         replaced,
                     })
                 } else {
@@ -608,7 +617,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     /// Maintenance task to apply a series of updates.
     ///
     /// This will move/discard the given transaction according to the `PoolUpdate`
-    fn process_updates(&mut self, updates: Vec<PoolUpdate>) -> UpdateOutcome<T::Transaction> {
+    fn process_updates<'a>(&mut self, updates: impl Iterator<Item = &'a PoolUpdate>) -> UpdateOutcome<T::Transaction> {
         let mut outcome = UpdateOutcome::default();
         for PoolUpdate { id, hash, current, destination } in updates {
             match destination {
@@ -621,7 +630,7 @@ impl<T: TransactionOrdering> TxPool<T> {
                 }
                 Destination::Pool(move_to) => {
                     debug_assert_ne!(&move_to, &current, "destination must be different");
-                    let moved = self.move_transaction(current, move_to, &id);
+                    let moved = self.move_transaction(*current, *move_to, &id);
                     if matches!(move_to, SubPool::Pending) {
                         if let Some(tx) = moved {
                             trace!(target: "txpool", hash=%tx.transaction.hash(), "Promoted transaction to pending");
