@@ -115,7 +115,8 @@ impl<T: TransactionOrdering> BestTransactions<T> {
 
                 // the cost of ignoring this error is allowing old transactions to get
                 // overwritten after the chan buffer size is met
-                Err(TryRecvError::Lagged(_)) => {
+                Err(TryRecvError::Lagged(err)) => {
+                    tracing::warn!("try_recv: TryRecvError::Lagged({:?})", err);
                     // Handle the case where the receiver lagged too far behind.
                     // `num_skipped` indicates the number of messages that were skipped.
                     continue
@@ -123,7 +124,10 @@ impl<T: TransactionOrdering> BestTransactions<T> {
 
                 // this case is still better than the existing iterator behavior where no new
                 // pending txs are surfaced to consumers
-                Err(_) => return None,
+                Err(err) => {
+                    tracing::warn!("try_recv: Err({:?})", err);
+                    return None
+                }
             }
         }
     }
