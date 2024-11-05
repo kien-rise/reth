@@ -109,7 +109,10 @@ impl<T: TransactionOrdering> BestTransactions<T> {
     fn try_recv(&mut self) -> Option<PendingTransaction<T>> {
         loop {
             match self.new_transaction_receiver.as_mut()?.try_recv() {
-                Ok(tx) => return Some(tx),
+                Ok(tx) => return {
+                    tracing::warn!("try_recv: Some({:?})", tx.transaction.transaction_id.sender);
+                    Some(tx)
+                },
                 // note TryRecvError::Lagged can be returned here, which is an error that attempts
                 // to correct itself on consecutive try_recv() attempts
 
@@ -125,7 +128,9 @@ impl<T: TransactionOrdering> BestTransactions<T> {
                 // this case is still better than the existing iterator behavior where no new
                 // pending txs are surfaced to consumers
                 Err(err) => {
-                    tracing::warn!("try_recv: Err({:?})", err);
+                    if err != TryRecvError::Empty {
+                        tracing::warn!("try_recv: Err({:?})", err);
+                    }
                     return None
                 }
             }
