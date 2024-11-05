@@ -60,7 +60,7 @@ pub struct PendingPool<T: TransactionOrdering> {
 impl<T: TransactionOrdering> PendingPool<T> {
     /// Create a new pool instance.
     pub fn new(ordering: T) -> Self {
-        let (new_transaction_notifier, _) = broadcast::channel(200);
+        let (new_transaction_notifier, _) = broadcast::channel(100000);
         Self {
             ordering,
             submission_id: 0,
