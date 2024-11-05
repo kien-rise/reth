@@ -297,6 +297,33 @@ mod tests {
     }
 
     #[test]
+    fn test_independent_txs_from_updates() {
+        let mut pool = PendingPool::new(MockOrdering::default());
+        let mut f = MockTransactionFactory::default();
+        let tx = MockTransaction::eip1559();
+
+        // insert 4 gapless txs
+        for nonce in [0, 1, 2, 3] {
+            let tx = tx.clone().rng_hash().with_nonce(nonce);
+            let valid_tx = f.validated(tx);
+            pool.add_transaction(Arc::new(valid_tx), 0);
+        }
+
+        let best = pool.best();
+
+        // insert 4 gapped txs
+        for nonce in [5, 7, 9, 11] {
+            let tx = tx.clone().rng_hash().with_nonce(nonce);
+            let valid_tx = f.validated(tx);
+            pool.add_transaction(Arc::new(valid_tx), 0);
+        }
+
+        let drained: Vec<_> = best.map(|tx| tx.transaction_id).collect();
+        println!("drained = {:?}", drained);
+        assert_eq!(drained.len(), 4);
+    }
+
+    #[test]
     fn test_best_iter_invalid() {
         let mut pool = PendingPool::new(MockOrdering::default());
         let mut f = MockTransactionFactory::default();

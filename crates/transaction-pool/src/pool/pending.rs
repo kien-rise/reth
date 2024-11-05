@@ -108,9 +108,9 @@ impl<T: TransactionOrdering> PendingPool<T> {
     pub(crate) fn best(&self) -> BestTransactions<T> {
         BestTransactions {
             all: self.by_id.clone(),
+            new_transaction_receiver: Some(self.new_transaction_notifier.subscribe()),
             independent: self.independent_transactions.clone(),
             invalid: Default::default(),
-            new_transaction_receiver: Some(self.new_transaction_notifier.subscribe()),
             skip_blobs: false,
         }
     }
@@ -309,9 +309,9 @@ impl<T: TransactionOrdering> PendingPool<T> {
         self.all.insert(tx.clone());
 
         // send the new transaction to any existing pendingpool static file iterators
-        if self.new_transaction_notifier.receiver_count() > 0 {
-            let _ = self.new_transaction_notifier.send(tx.clone());
-        }
+        // if self.new_transaction_notifier.receiver_count() > 0 {
+        let _ = self.new_transaction_notifier.send(tx.clone());
+        // }
 
         self.by_id.insert(tx_id, tx);
     }
