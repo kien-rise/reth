@@ -109,10 +109,15 @@ impl<T: TransactionOrdering> BestTransactions<T> {
     fn try_recv(&mut self) -> Option<PendingTransaction<T>> {
         loop {
             match self.new_transaction_receiver.as_mut()?.try_recv() {
-                Ok(tx) => return {
-                    tracing::warn!("try_recv: Some({:?})", tx.transaction.transaction_id.sender);
-                    Some(tx)
-                },
+                Ok(tx) => {
+                    return {
+                        tracing::warn!(
+                            "try_recv: Some({:?})",
+                            tx.transaction.transaction_id.sender
+                        );
+                        Some(tx)
+                    }
+                }
                 // note TryRecvError::Lagged can be returned here, which is an error that attempts
                 // to correct itself on consecutive try_recv() attempts
 
@@ -178,6 +183,7 @@ impl<T: TransactionOrdering> Iterator for BestTransactions<T> {
             self.add_new_transactions();
             // Remove the next independent tx with the highest priority
             let best = self.independent.pop_last()?;
+            self.all.remove(best.transaction.id());
             let hash = best.transaction.hash();
 
             // skip transactions that were marked as invalid
@@ -631,6 +637,48 @@ mod tests {
         // Verify that the filter only returns transactions with even nonces
         for tx in filter {
             assert_eq!(tx.nonce() % 2, 0);
+        }
+    }
+
+    #[test]
+    fn test_eligible_updates_not_promoted() {
+        let mut pool = PendingPool::new(MockOrdering::default());
+        let mut f = MockTransactionFactory::default();
+
+        let num_senders = 10;
+
+        let first_txs: Vec<_> = (0..num_senders) //
+            .map(|_| MockTransaction::eip1559())
+            .collect();
+        let second_txs: Vec<_> =
+            first_txs.iter().map(|tx| tx.clone().rng_hash().inc_nonce()).collect();
+
+        for tx in first_txs {
+            let valid_tx = f.validated(tx);
+            pool.add_transaction(Arc::new(valid_tx), 0);
+        }
+
+        let mut best = pool.best();
+
+        for _ in 0..num_senders {
+            if let Some(tx) = best.next() {
+                println!("{:?}", tx.transaction_id);
+            } else {
+                panic!("cannot read one of first_txs");
+            }
+        }
+
+        for tx in second_txs {
+            let valid_tx = f.validated(tx);
+            pool.add_transaction(Arc::new(valid_tx), 0);
+        }
+
+        for _ in 0..num_senders {
+            if let Some(tx) = best.next() {
+                println!("{:?}", tx.transaction_id);
+            } else {
+                panic!("cannot read one of second_txs");
+            }
         }
     }
 }
