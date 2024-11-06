@@ -111,10 +111,10 @@ impl<T: TransactionOrdering> BestTransactions<T> {
             match self.new_transaction_receiver.as_mut()?.try_recv() {
                 Ok(tx) => {
                     return {
-                        tracing::warn!(
-                            "try_recv: Some({:?})",
-                            tx.transaction.transaction_id.sender
-                        );
+                        // tracing::warn!(
+                        //     "try_recv: Some({:?})",
+                        //     tx.transaction.transaction_id.sender
+                        // );
                         Some(tx)
                     }
                 }
@@ -182,7 +182,14 @@ impl<T: TransactionOrdering> Iterator for BestTransactions<T> {
         loop {
             self.add_new_transactions();
             // Remove the next independent tx with the highest priority
-            let best = self.independent.pop_last()?;
+            let best = match self.independent.pop_last() {
+
+                Some(tx) => tx,
+                None => {
+                    assert!(self.all.len() < 16);
+                    return None;
+                }
+            };
             self.all.remove(best.transaction.id());
             let hash = best.transaction.hash();
 
