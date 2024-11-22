@@ -317,9 +317,11 @@ where
         &self,
         payload_id: PayloadId,
     ) -> EngineApiResult<EngineT::ExecutionPayloadV3> {
+        warn!("416081cc-2706-4f7e-b296-168e2ef65c40 get_payload_v3");
         // First we fetch the payload attributes to check the timestamp
         let attributes = self.get_payload_attributes(payload_id).await?;
 
+        warn!("79401fb2-f4ec-4536-ad68-0b9ee8d9c131 get_payload_v3");
         // validate timestamp according to engine rules
         validate_payload_timestamp(
             &self.inner.chain_spec,
@@ -327,8 +329,9 @@ where
             attributes.timestamp(),
         )?;
 
+        warn!("13ab4d98-f2a6-45e3-868e-21d5e39ae6ec get_payload_v3");
         // Now resolve the payload
-        self.inner
+        let r = self.inner
             .payload_store
             .resolve(payload_id)
             .await
@@ -338,7 +341,10 @@ where
             .map_err(|_| {
                 warn!("could not transform built payload into ExecutionPayloadV3");
                 EngineApiError::UnknownPayload
-            })
+            });
+
+        warn!("0df73991-916b-418d-b7e8-4e141e1fbf87 get_payload_v3");
+        r
     }
 
     /// Returns the most recent version of the payload that is available in the corresponding
@@ -807,9 +813,11 @@ where
         payload_id: PayloadId,
     ) -> RpcResult<EngineT::ExecutionPayloadV3> {
         trace!(target: "rpc::engine", "Serving engine_getPayloadV3");
+        warn!("ff2c1f53-9c1f-4464-ac8a-1be2e0332a7b get_payload_v3");
         let start = Instant::now();
         let res = Self::get_payload_v3(self, payload_id).await;
         self.inner.metrics.latency.get_payload_v3.record(start.elapsed());
+        warn!("9e91557c-a3dd-497a-8338-2f45fd41a3cf get_payload_v3");
         Ok(res?)
     }
 

@@ -764,6 +764,7 @@ impl<N: ProviderNodeTypes> BlockHashReader for BlockchainProvider2<N> {
 
 impl<N: ProviderNodeTypes> BlockNumReader for BlockchainProvider2<N> {
     fn chain_info(&self) -> ProviderResult<ChainInfo> {
+        println!("945e19f9-d36f-4f46-aedc-0316c23dad1a");
         Ok(self.canonical_in_memory_state.chain_info())
     }
 

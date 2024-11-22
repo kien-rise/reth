@@ -260,6 +260,7 @@ impl<N: ProviderNodeTypes> BlockHashReader for BlockchainProvider<N> {
 
 impl<N: ProviderNodeTypes> BlockNumReader for BlockchainProvider<N> {
     fn chain_info(&self) -> ProviderResult<ChainInfo> {
+        println!("bf7f4618-710c-4c4a-a509-ddcc66f57de6");
         Ok(self.chain_info.chain_info())
     }
 
