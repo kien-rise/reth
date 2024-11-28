@@ -149,6 +149,7 @@ where
     }
 
     fn calculate(self, retain_updates: bool) -> Result<StateRootProgress, StateRootError> {
+        tracing::warn!("01943d56-6303-4272-955b-9313ce3f4a3d calculate");
         trace!(target: "trie::state_root", "calculating state root");
         let mut tracker = TrieTracker::default();
         let mut trie_updates = TrieUpdates::default();
@@ -156,38 +157,51 @@ where
         let trie_cursor = self.trie_cursor_factory.account_trie_cursor()?;
 
         let hashed_account_cursor = self.hashed_cursor_factory.hashed_account_cursor()?;
+        tracing::warn!("4ff37d1d-6e3e-4db3-8c55-373e045a892c calculate");
         let (mut hash_builder, mut account_node_iter) = match self.previous_state {
             Some(state) => {
+                tracing::warn!("e805e27b-6e20-4d54-8a84-34d38ee83bf3 calculate");
                 let hash_builder = state.hash_builder.with_updates(retain_updates);
+                tracing::warn!("ac6a2ccf-aaeb-4bce-80e1-dd9e648b82b9 calculate");
                 let walker = TrieWalker::from_stack(
                     trie_cursor,
                     state.walker_stack,
                     self.prefix_sets.account_prefix_set,
                 )
                 .with_deletions_retained(retain_updates);
+                tracing::warn!("bd6743dc-30d6-45c9-9204-2126dd34265b calculate");
                 let node_iter = TrieNodeIter::new(walker, hashed_account_cursor)
                     .with_last_hashed_key(state.last_account_key);
+                tracing::warn!("600eb76d-1a96-4568-b63a-596ab55530e5 calculate");
                 (hash_builder, node_iter)
             }
             None => {
                 let hash_builder = HashBuilder::default().with_updates(retain_updates);
+                tracing::warn!("2bcc5dbc-b6ff-4d88-8c89-69aca4cad9e3 calculate");
                 let walker = TrieWalker::new(trie_cursor, self.prefix_sets.account_prefix_set)
                     .with_deletions_retained(retain_updates);
+                tracing::warn!("645cfd74-b91b-4884-8d3b-7f40e7c62ec0 calculate");
                 let node_iter = TrieNodeIter::new(walker, hashed_account_cursor);
+                tracing::warn!("de30fd05-6ea3-4152-9eed-5d067078f588 calculate");
                 (hash_builder, node_iter)
             }
         };
+        tracing::warn!("3bcc5068-94d1-4094-a0dc-26aee6af379a calculate");
 
         let mut account_rlp = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
         let mut hashed_entries_walked = 0;
         let mut updated_storage_nodes = 0;
+        tracing::warn!("8caf2e13-5f99-4d46-aa99-5176c63bd7bd calculate");
         while let Some(node) = account_node_iter.try_next()? {
             match node {
                 TrieElement::Branch(node) => {
+                    tracing::warn!("148f9750-ea09-4dc4-a413-d0e2e815e0ca TrieElement::Branch");
                     tracker.inc_branch();
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
+                    tracing::warn!("bc9dd4d3-bd41-4b2f-ac93-202255dc8c35 TrieElement::Branch");
                 }
                 TrieElement::Leaf(hashed_address, account) => {
+                    tracing::warn!("b667b228-e2c6-416e-a0ed-565eeec67bf5 TrieElement::Leaf");
                     tracker.inc_leaf();
                     hashed_entries_walked += 1;
 
@@ -213,6 +227,8 @@ where
                             .unwrap_or_default(),
                     );
 
+                    tracing::warn!("e744b456-2b30-4859-b9da-d2145f8922eb TrieElement::Leaf");
+
                     let storage_root = if retain_updates {
                         let (root, storage_slots_walked, updates) =
                             storage_root_calculator.root_with_updates()?;
@@ -225,21 +241,29 @@ where
                         storage_root_calculator.root()?
                     };
 
+                    tracing::warn!("aae60066-51a0-4fa2-8ddf-2f34248b5210 TrieElement::Leaf");
+
                     account_rlp.clear();
                     let account = TrieAccount::from((account, storage_root));
                     account.encode(&mut account_rlp as &mut dyn BufMut);
+                    tracing::warn!("edf9ebd9-ad97-43dc-bcb1-d40d8b0ced28 TrieElement::Leaf");
                     hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+
+                    tracing::warn!("e4499e13-c234-4adc-b661-6897a790a9e7 TrieElement::Leaf");
 
                     // Decide if we need to return intermediate progress.
                     let total_updates_len = updated_storage_nodes +
                         account_node_iter.walker.removed_keys_len() +
                         hash_builder.updates_len();
+                        tracing::warn!("18fef7f6-820c-4218-b421-ca088b0d22f7 TrieElement::Leaf");
                     if retain_updates && total_updates_len as u64 >= self.threshold {
+                        tracing::warn!("08d74628-fc70-46a2-9826-ad481f7052b2 TrieElement::Leaf");
                         let (walker_stack, walker_deleted_keys) = account_node_iter.walker.split();
                         trie_updates.removed_nodes.extend(walker_deleted_keys);
                         let (hash_builder, hash_builder_updates) = hash_builder.split();
                         trie_updates.account_nodes.extend(hash_builder_updates);
 
+                        tracing::warn!("2f4a8833-d578-4683-977c-ca2e85bfa888 TrieElement::Leaf");
                         let state = IntermediateStateRootState {
                             hash_builder,
                             walker_stack,
@@ -255,14 +279,17 @@ where
                 }
             }
         }
+        tracing::warn!("b8c1a245-ae66-43c1-aa16-838ac71ba6cb calculate");
 
         let root = hash_builder.root();
+        tracing::warn!("4bad4796-313f-41e5-b92b-0d5435e4beef calculate");
 
         trie_updates.finalize(
             account_node_iter.walker,
             hash_builder,
             self.prefix_sets.destroyed_accounts,
         );
+        tracing::warn!("cbf8791f-94c0-4943-8d99-74495662ca8a calculate");
 
         let stats = tracker.finish();
 
