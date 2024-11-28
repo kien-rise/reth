@@ -366,6 +366,12 @@ where
             return Vec::new()
         }
         let validated = self.validate_all(origin, transactions).await;
+        for (_, tx) in validated.iter() {
+            if !tx.is_valid() {
+                println!("tx = {:?}", tx);
+                panic!("tx not valid");
+            }
+        }
 
         self.pool.add_transactions(origin, validated.into_iter().map(|(_, tx)| tx))
     }

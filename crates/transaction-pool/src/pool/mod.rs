@@ -393,12 +393,19 @@ where
         let changed_senders = self.changed_senders(changed_accounts.into_iter());
 
         // update the pool
-        let outcome = self.pool.write().on_canonical_state_change(
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let outcome = guard.on_canonical_state_change(
             block_info,
             mined_transactions,
             changed_senders,
             update_kind,
         );
+        tracing::warn!(
+            "0aa1c14f-6fe4-47f7-9430-fd7e416a4f62 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
 
         // This will discard outdated transactions based on the account's nonce
         self.delete_discarded_blobs(outcome.discarded.iter());
@@ -412,8 +419,16 @@ where
     /// This will either promote or discard transactions based on the new account state.
     pub(crate) fn update_accounts(&self, accounts: Vec<ChangedAccount>) {
         let changed_senders = self.changed_senders(accounts.into_iter());
-        let UpdateOutcome { promoted, discarded } =
-            self.pool.write().update_accounts(changed_senders);
+
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let UpdateOutcome { promoted, discarded } = guard.update_accounts(changed_senders);
+        tracing::warn!(
+            "4af22a63-7fda-44ac-a586-32fb1ab44647 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
+
         let mut listener = self.event_listener.write();
 
         promoted.iter().for_each(|tx| listener.pending(tx.hash(), None));
@@ -463,7 +478,15 @@ where
                     origin,
                 };
 
-                let added = self.pool.write().add_transaction(tx, balance, state_nonce)?;
+                let mut guard = self.pool.write();
+                let guard_created_at = std::time::Instant::now();
+                let added = guard.add_transaction(tx, balance, state_nonce)?;
+                tracing::warn!(
+                    "752d55af-a342-4341-a7c5-c86ee5f2ea42 guard_created_at.elapsed() = {:?}",
+                    guard_created_at.elapsed().as_millis()
+                );
+                drop(guard);
+
                 let hash = *added.hash();
 
                 // transaction was successfully inserted into the pool
@@ -713,7 +736,14 @@ where
         if hashes.is_empty() {
             return Vec::new()
         }
-        let removed = self.pool.write().remove_transactions(hashes);
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let removed = guard.remove_transactions(hashes);
+        tracing::warn!(
+            "b388b31e-41cb-44fc-b774-35b3fb20bf17 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
 
         let mut listener = self.event_listener.write();
 
@@ -731,7 +761,14 @@ where
         if hashes.is_empty() {
             return Vec::new()
         }
-        let removed = self.pool.write().remove_transactions_and_descendants(hashes);
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let removed = guard.remove_transactions_and_descendants(hashes);
+        tracing::warn!(
+            "a6c6ebc7-62c0-466e-a0c1-f52520ff7126 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
 
         let mut listener = self.event_listener.write();
 
@@ -745,7 +782,15 @@ where
         sender: Address,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
         let sender_id = self.get_sender_id(sender);
-        let removed = self.pool.write().remove_transactions_by_sender(sender_id);
+
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let removed = guard.remove_transactions_by_sender(sender_id);
+        tracing::warn!(
+            "237d6415-d1aa-4a14-892c-79dd9600bf94 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
 
         let mut listener = self.event_listener.write();
 
@@ -889,7 +934,14 @@ where
     /// If some of the transactions are blob transactions, they are also removed from the blob
     /// store.
     pub(crate) fn discard_worst(&self) -> HashSet<TxHash> {
-        let discarded = self.pool.write().discard_worst();
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let discarded = guard.discard_worst();
+        tracing::warn!(
+            "b2b11e46-987f-4d29-893b-b990a7f7e290 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
 
         // delete any blobs associated with discarded blob transactions
         self.delete_discarded_blobs(discarded.iter());
