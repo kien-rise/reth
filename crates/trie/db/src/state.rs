@@ -204,14 +204,21 @@ impl<'a, TX: DbTx> DatabaseStateRoot<'a, TX>
         tx: &'a TX,
         input: TrieInput,
     ) -> Result<(B256, TrieUpdates), StateRootError> {
+        tracing::warn!("29f4ec43-04a9-4259-aec5-d626412fc78c overlay_root_from_nodes_with_updates");
         let state_sorted = input.state.into_sorted();
+        tracing::warn!("fcb00528-8dba-4734-a5ab-a70ea34a1f14 overlay_root_from_nodes_with_updates");
         let nodes_sorted = input.nodes.into_sorted();
-        StateRoot::new(
+        tracing::warn!("79f14135-c4fa-4bc6-9214-f4d0eab3fa4b overlay_root_from_nodes_with_updates");
+        let a = StateRoot::new(
             InMemoryTrieCursorFactory::new(DatabaseTrieCursorFactory::new(tx), &nodes_sorted),
             HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(tx), &state_sorted),
-        )
-        .with_prefix_sets(input.prefix_sets.freeze())
-        .root_with_updates()
+        );
+        tracing::warn!("dcb6207d-9866-4ef1-90ee-e653c33ad1a6 overlay_root_from_nodes_with_updates");
+        let b = a.with_prefix_sets(input.prefix_sets.freeze());
+        tracing::warn!("20c80839-977d-4b6a-9210-f2eedb91f38a overlay_root_from_nodes_with_updates");
+        let c = b.root_with_updates();
+        tracing::warn!("ba18219b-2367-4ae7-af1e-3994dd0a3e49 overlay_root_from_nodes_with_updates");
+        c
     }
 }
 
