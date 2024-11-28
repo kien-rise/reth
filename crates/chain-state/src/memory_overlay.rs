@@ -131,7 +131,10 @@ macro_rules! impl_state_provider {
                 &self,
                 state: HashedPostState,
             ) -> ProviderResult<(B256, TrieUpdates)> {
-                self.state_root_from_nodes_with_updates(TrieInput::from_state(state))
+                tracing::warn!("1844b935-c569-4b73-bf25-543056130716 state_root_with_updates");
+                let result = self.state_root_from_nodes_with_updates(TrieInput::from_state(state));
+                tracing::warn!("bcae477d-fd04-4043-8da8-4b6a6680bd9a state_root_with_updates");
+                result
             }
 
             fn state_root_from_nodes_with_updates(

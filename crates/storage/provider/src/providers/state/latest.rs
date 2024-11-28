@@ -76,8 +76,11 @@ impl<Provider: DBProvider> StateRootProvider for LatestStateProviderRef<'_, Prov
         &self,
         hashed_state: HashedPostState,
     ) -> ProviderResult<(B256, TrieUpdates)> {
-        StateRoot::overlay_root_with_updates(self.tx(), hashed_state)
-            .map_err(|err| ProviderError::Database(err.into()))
+        tracing::warn!("f303747b-11b4-4c91-a501-d0984446b025 state_root_with_updates");
+        let result = StateRoot::overlay_root_with_updates(self.tx(), hashed_state)
+            .map_err(|err| ProviderError::Database(err.into()));
+        tracing::warn!("023df673-fa88-4060-84bd-c38d18c9e470 state_root_with_updates");
+        result
     }
 
     fn state_root_from_nodes_with_updates(

@@ -300,10 +300,13 @@ impl<Provider: DBProvider + BlockNumReader> StateRootProvider
         &self,
         hashed_state: HashedPostState,
     ) -> ProviderResult<(B256, TrieUpdates)> {
+        tracing::warn!("758183b7-628f-40d5-9dbb-d7f76115c68e state_root_with_updates");
         let mut revert_state = self.revert_state()?;
         revert_state.extend(hashed_state);
-        StateRoot::overlay_root_with_updates(self.tx(), revert_state)
-            .map_err(|err| ProviderError::Database(err.into()))
+        let result = StateRoot::overlay_root_with_updates(self.tx(), revert_state)
+            .map_err(|err| ProviderError::Database(err.into()));
+        tracing::warn!("cff51b55-067e-402d-82b5-a2f473591452 state_root_with_updates");
+        result
     }
 
     fn state_root_from_nodes_with_updates(

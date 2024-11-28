@@ -99,10 +99,13 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateRootProvider
         &self,
         hashed_state: HashedPostState,
     ) -> ProviderResult<(B256, TrieUpdates)> {
+        tracing::warn!("77338b1f-250b-4cad-ac7a-8669823e339a state_root_with_updates");
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
         let mut state = HashedPostState::from_bundle_state(&bundle_state.state);
         state.extend(hashed_state);
-        self.state_provider.state_root_with_updates(state)
+        let result = self.state_provider.state_root_with_updates(state);
+        tracing::warn!("5bbdc8a2-a789-43bf-b57c-a63b1442bf65 state_root_with_updates");
+        result
     }
 
     fn state_root_from_nodes_with_updates(

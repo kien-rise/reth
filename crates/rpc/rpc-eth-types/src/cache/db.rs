@@ -39,7 +39,10 @@ impl reth_storage_api::StateRootProvider for StateProviderTraitObjWrapper<'_> {
         &self,
         hashed_state: reth_trie::HashedPostState,
     ) -> reth_errors::ProviderResult<(B256, reth_trie::updates::TrieUpdates)> {
-        self.0.state_root_with_updates(hashed_state)
+        tracing::warn!("5d34b063-d9c7-425a-b9c0-35b4bddc1fe6 state_root_with_updates");
+        let result = self.0.state_root_with_updates(hashed_state);
+        tracing::warn!("e22d5498-0a32-424e-b1da-1174797d1c4d state_root_with_updates");
+        result
     }
 
     fn state_root_from_nodes_with_updates(

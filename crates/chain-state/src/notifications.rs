@@ -56,7 +56,7 @@ impl<N: NodePrimitives> Stream for CanonStateNotificationStream<N> {
             return match ready!(self.as_mut().project().st.poll_next(cx)) {
                 Some(Ok(notification)) => Poll::Ready(Some(notification)),
                 Some(Err(err)) => {
-                    debug!(%err, "canonical state notification stream lagging behind");
+                    tracing::warn!(%err, "canonical state notification stream lagging behind");
                     continue
                 }
                 None => Poll::Ready(None),
