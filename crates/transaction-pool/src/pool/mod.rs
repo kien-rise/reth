@@ -97,6 +97,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 use tracing::{debug, trace, warn};
+use txpool::TxPoolSnapshot;
 mod events;
 use crate::{
     blobstore::BlobStore,
@@ -144,6 +145,8 @@ where
     blob_store: S,
     /// The internal pool that manages all transactions.
     pool: RwLock<TxPool<T>>,
+    /// Pool snapshot, prepared before a time-consuming operation.
+    pool_snapshot: Mutex<TxPoolSnapshot<T::Transaction>>,
     /// Pool settings.
     config: PoolConfig,
     /// Manages listeners for transaction state change events.
@@ -168,11 +171,14 @@ where
 {
     /// Create a new transaction pool instance.
     pub(crate) fn new(validator: V, ordering: T, blob_store: S, config: PoolConfig) -> Self {
+        let pool = TxPool::new(ordering, config.clone());
+        let pool_snapshot = TxPoolSnapshot::from(&pool);
         Self {
             identifiers: Default::default(),
             validator,
             event_listener: Default::default(),
-            pool: RwLock::new(TxPool::new(ordering, config.clone())),
+            pool: RwLock::new(pool),
+            pool_snapshot: Mutex::new(pool_snapshot),
             pending_transaction_listener: Default::default(),
             transaction_listener: Default::default(),
             blob_transaction_sidecar_listener: Default::default(),
@@ -288,6 +294,17 @@ where
         self.pool.read()
     }
 
+    pub(crate) fn get_pool_snapshot(&self) -> TxPoolSnapshot<T::Transaction> {
+        if let Some(pool_guard) = self.pool.try_read() {
+            let mut pool_snapshot_guard = self.pool_snapshot.lock();
+            let result = TxPoolSnapshot::from(&*pool_guard);
+            *pool_snapshot_guard = result.clone();
+            result
+        } else {
+            (*self.pool_snapshot.lock()).clone()
+        }
+    }
+
     /// Returns hashes of _all_ transactions in the pool.
     pub(crate) fn pooled_transactions_hashes(&self) -> Vec<TxHash> {
         self.get_pool_data()
@@ -393,12 +410,24 @@ where
         let changed_senders = self.changed_senders(changed_accounts.into_iter());
 
         // update the pool
-        let outcome = self.pool.write().on_canonical_state_change(
+        let guard = self.pool.read();
+        let pool_snapshot = TxPoolSnapshot::from(&*guard);
+        *self.pool_snapshot.lock() = pool_snapshot;
+        drop(guard);
+
+        let mut guard = self.pool.write();
+        let guard_created_at = std::time::Instant::now();
+        let outcome = guard.on_canonical_state_change(
             block_info,
             mined_transactions,
             changed_senders,
             update_kind,
         );
+        tracing::warn!(
+            "0aa1c14f-6fe4-47f7-9430-fd7e416a4f62 guard_created_at.elapsed() = {:?}",
+            guard_created_at.elapsed().as_millis()
+        );
+        drop(guard);
 
         // This will discard outdated transactions based on the account's nonce
         self.delete_discarded_blobs(outcome.discarded.iter());

@@ -38,6 +38,24 @@ use std::{
 };
 use tracing::trace;
 
+const SNAPSHOT_NUM_TRANSACTIONS: usize = 100_000;
+
+/// Transaction pool snapshot
+#[derive(Debug, Clone)]
+pub struct TxPoolSnapshot<T: PoolTransaction> {
+    pub block_info: BlockInfo,
+    pub best_txs: Vec<Arc<ValidPoolTransaction<T>>>,
+}
+
+impl<T: TransactionOrdering> From<&TxPool<T>> for TxPoolSnapshot<T::Transaction> {
+    fn from(pool: &TxPool<T>) -> Self {
+        Self {
+            block_info: pool.block_info(),
+            best_txs: pool.pending_transactions_iter().take(SNAPSHOT_NUM_TRANSACTIONS).collect(),
+        }
+    }
+}
+
 #[cfg_attr(doc, aquamarine::aquamarine)]
 /// A pool that manages transactions.
 ///

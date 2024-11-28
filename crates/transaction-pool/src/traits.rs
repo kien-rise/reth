@@ -1,7 +1,7 @@
 use crate::{
     blobstore::BlobStoreError,
     error::{InvalidPoolTransactionError, PoolResult},
-    pool::{state::SubPool, BestTransactionFilter, TransactionEvents},
+    pool::{state::SubPool, txpool::TxPoolSnapshot, BestTransactionFilter, TransactionEvents},
     validate::ValidPoolTransaction,
     AllTransactionsEvents,
 };
@@ -278,6 +278,8 @@ pub trait TransactionPool: Send + Sync + Clone {
         &self,
         max: usize,
     ) -> Vec<Arc<ValidPoolTransaction<Self::Transaction>>>;
+
+    fn get_pool_snapshot(&self) -> TxPoolSnapshot<Self::Transaction>;
 
     /// Returns all transactions that can be included in _future_ blocks.
     ///

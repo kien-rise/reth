@@ -448,6 +448,10 @@ where
         self.pool.pending_transactions_max(max)
     }
 
+    fn get_pool_snapshot(&self) -> pool::txpool::TxPoolSnapshot<Self::Transaction> {
+        self.pool.get_pool_snapshot()
+    }
+
     fn queued_transactions(&self) -> Vec<Arc<ValidPoolTransaction<Self::Transaction>>> {
         self.pool.queued_transactions()
     }

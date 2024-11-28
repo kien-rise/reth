@@ -170,6 +170,10 @@ impl TransactionPool for NoopTransactionPool {
         vec![]
     }
 
+    fn get_pool_snapshot(&self) -> crate::pool::txpool::TxPoolSnapshot<Self::Transaction> {
+        crate::pool::txpool::TxPoolSnapshot { block_info: BlockInfo::default(), best_txs: vec![] }
+    }
+
     fn queued_transactions(&self) -> Vec<Arc<ValidPoolTransaction<Self::Transaction>>> {
         vec![]
     }
