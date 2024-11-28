@@ -577,8 +577,14 @@ impl<N: ProviderNodeTypes> StateProviderFactory for BlockchainProvider2<N> {
     }
 
     fn state_by_block_hash(&self, hash: BlockHash) -> ProviderResult<StateProviderBox> {
+        let start_time = std::time::Instant::now();
+        tracing::warn!(
+            "4d226633-5e59-40aa-bb0f-54fad7254c2d state_by_block_hash({:?}) elapsed={:?}",
+            hash,
+            start_time.elapsed().as_millis()
+        );
         trace!(target: "providers::blockchain", ?hash, "Getting state by block hash");
-        if let Ok(state) = self.history_by_block_hash(hash) {
+        let result = if let Ok(state) = self.history_by_block_hash(hash) {
             // This could be tracked by a historical block
             Ok(state)
         } else if let Ok(Some(pending)) = self.pending_state_by_hash(hash) {
@@ -587,7 +593,13 @@ impl<N: ProviderNodeTypes> StateProviderFactory for BlockchainProvider2<N> {
         } else {
             // if we couldn't find it anywhere, then we should return an error
             Err(ProviderError::StateForHashNotFound(hash))
-        }
+        };
+        tracing::warn!(
+            "ff060fad-ffec-4e97-8468-882a4b2729a0 state_by_block_hash({:?}) elapsed={:?}",
+            hash,
+            start_time.elapsed().as_millis()
+        );
+        result
     }
 
     /// Returns the state provider for pending state.
