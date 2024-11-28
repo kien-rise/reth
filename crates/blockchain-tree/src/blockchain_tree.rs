@@ -1204,7 +1204,9 @@ where
 
         // Send notification about new canonical chain and return outcome of canonicalization.
         let outcome = CanonicalOutcome::Committed { head: chain_notification.tip().header.clone() };
+        tracing::warn!("5f7cac42-e235-4a44-afc3-facd1f200f52 canon_state_notification_sender.send");
         let _ = self.canon_state_notification_sender.send(chain_notification);
+        tracing::warn!("fb7f2996-62f6-4fce-8a37-7e28bd1fbb0c canon_state_notification_sender.send");
         Ok(outcome)
     }
 

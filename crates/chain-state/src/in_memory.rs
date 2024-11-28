@@ -516,7 +516,9 @@ where
 
     /// Attempts to send a new [`CanonStateNotification`] to all active Receiver handles.
     pub fn notify_canon_state(&self, event: CanonStateNotification<N>) {
+        tracing::warn!("e4865fc5-8c7b-4575-8632-806f75817b0c notify_canon_state");
         self.inner.canon_state_notification_sender.send(event).ok();
+        tracing::warn!("4b4e6577-294a-48ee-9b2c-b5901d941a7e notify_canon_state");
     }
 
     /// Return state provider with reference to in-memory blocks that overlay database state.
