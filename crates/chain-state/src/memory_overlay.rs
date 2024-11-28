@@ -141,9 +141,14 @@ macro_rules! impl_state_provider {
                 &self,
                 mut input: TrieInput,
             ) -> ProviderResult<(B256, TrieUpdates)> {
+                tracing::warn!("7e20e6aa-a5df-4a00-878c-c07f56ad4b81 state_root_from_nodes_with_updates");
                 let MemoryOverlayTrieState { nodes, state } = self.trie_state().clone();
+                tracing::warn!("c5654a01-485f-48cc-914a-22e05404f5e9 state_root_from_nodes_with_updates");
                 input.prepend_cached(nodes, state);
-                self.historical.state_root_from_nodes_with_updates(input)
+                tracing::warn!("618c49db-fdbc-4b20-9a8f-8bf4d5e51149 state_root_from_nodes_with_updates");
+                let result = self.historical.state_root_from_nodes_with_updates(input);
+                tracing::warn!("252d2811-4880-4816-bde1-9a872bf758bc state_root_from_nodes_with_updates");
+                result
             }
         }
 

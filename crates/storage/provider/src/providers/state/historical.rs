@@ -313,9 +313,13 @@ impl<Provider: DBProvider + BlockNumReader> StateRootProvider
         &self,
         mut input: TrieInput,
     ) -> ProviderResult<(B256, TrieUpdates)> {
+        tracing::warn!("51c85434-29d4-47ad-a845-180673fd896f state_root_from_nodes_with_updates");
         input.prepend(self.revert_state()?);
-        StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
+        tracing::warn!("c55f54c3-7d90-4049-bebd-4cbc13e81543 state_root_from_nodes_with_updates");
+        let result = StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
+            .map_err(|err| ProviderError::Database(err.into()));
+        tracing::warn!("7a6bc038-e014-4761-a3b1-27aaa75a76ee state_root_from_nodes_with_updates");
+        result
     }
 }
 

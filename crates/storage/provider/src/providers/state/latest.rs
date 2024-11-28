@@ -87,8 +87,11 @@ impl<Provider: DBProvider> StateRootProvider for LatestStateProviderRef<'_, Prov
         &self,
         input: TrieInput,
     ) -> ProviderResult<(B256, TrieUpdates)> {
-        StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
+        tracing::warn!("fcec56f0-0df0-4ff3-ba61-8bd0a96ebf39 state_root_from_nodes_with_updates");
+        let result = StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
+            .map_err(|err| ProviderError::Database(err.into()));
+        tracing::warn!("dcaa87d3-a4a5-4fbd-9688-a1994d88a7dd state_root_from_nodes_with_updates");
+        result
     }
 }
 
