@@ -389,6 +389,8 @@ where
 
     /// Updates the entire pool after a new block was executed.
     pub fn on_canonical_state_change(&self, update: CanonicalStateUpdate<'_>) {
+        let start_time = std::time::Instant::now();
+        tracing::warn!("> PoolInner::on_canonical_state_change: {:?}", update.new_tip.hash());
         trace!(target: "txpool", ?update, "updating pool on canonical state change");
 
         let block_info = update.block_info();
@@ -412,6 +414,7 @@ where
 
         // notify listeners about updates
         self.notify_on_new_state(outcome);
+        tracing::warn!("< PoolInner::on_canonical_state_change: elapsed = {:?}", start_time.elapsed().as_millis());
     }
 
     /// Performs account updates on the pool.

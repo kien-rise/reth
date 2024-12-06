@@ -484,6 +484,8 @@ impl<T: TransactionOrdering> TxPool<T> {
         changed_senders: HashMap<SenderId, SenderInfo>,
         update_kind: PoolUpdateKind,
     ) -> OnNewCanonicalStateOutcome<T::Transaction> {
+        let start_time = std::time::Instant::now();
+        tracing::warn!("> TxPool::on_canonical_state_change: block_info.last_seen_block_hash = {:?}", block_info.last_seen_block_hash);
         // update block info
         let block_hash = block_info.last_seen_block_hash;
         self.all_transactions.set_block_info(block_info);
@@ -503,6 +505,8 @@ impl<T: TransactionOrdering> TxPool<T> {
 
         // Update the latest update kind
         self.latest_update_kind = Some(update_kind);
+
+        tracing::warn!("< TxPool::on_canonical_state_change: elapsed = {:?}", start_time.elapsed().as_millis());
 
         OnNewCanonicalStateOutcome { block_hash, mined: mined_transactions, promoted, discarded }
     }

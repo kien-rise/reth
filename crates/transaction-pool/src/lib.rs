@@ -624,7 +624,10 @@ where
     }
 
     fn on_canonical_state_change(&self, update: CanonicalStateUpdate<'_>) {
+        let start_time = std::time::Instant::now();
+        tracing::warn!("> Pool::on_canonical_state_change: update.new_tip.hash() = {:?}", update.new_tip.hash());
         self.pool.on_canonical_state_change(update);
+        tracing::warn!("< Pool::on_canonical_state_change: elapsed = {:?}", start_time.elapsed().as_millis());
     }
 
     fn update_accounts(&self, accounts: Vec<ChangedAccount>) {
