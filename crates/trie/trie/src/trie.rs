@@ -259,7 +259,33 @@ where
         let root = hash_builder.root();
 
         let removed_keys = account_node_iter.walker.take_removed_keys();
+
+        let mut recovered_root_hashes = std::collections::HashMap::new();
+
+        if let Some(root_update) = hash_builder.updated_branch_nodes.as_ref() {
+            if let Some(root_branch_node) = root_update.get(&Nibbles::new()) {
+                let mut iter = root_branch_node.hashes.iter();
+                for nibble in 0u8..16 {
+                    if root_branch_node.hash_mask.is_bit_set(nibble) {
+                        recovered_root_hashes
+                            .insert(Nibbles::from_nibbles(&[nibble]), *(iter.next().unwrap()));
+                    }
+                }
+            }
+        }
+
+        // let taken_update = match hash_builder.updated_branch_nodes.as_ref() {
+        //     Some(nodes) => nodes.get(&Nibbles::new()).cloned(),
+        //     None => None,
+        // };
+        // println!("root = {:?}, taken_update = {:?}", root, taken_update);
         trie_updates.finalize(hash_builder, removed_keys, self.prefix_sets.destroyed_accounts);
+
+        for (nibbles, root_hash) in recovered_root_hashes.into_iter() {
+            if let Some(value_mut) = trie_updates.account_nodes.get_mut(&nibbles) {
+                value_mut.root_hash = Some(root_hash)
+            }
+        }
 
         let stats = tracker.finish();
 
