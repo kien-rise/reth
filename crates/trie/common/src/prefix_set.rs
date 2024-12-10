@@ -41,6 +41,64 @@ impl TriePrefixSetsMut {
             destroyed_accounts: self.destroyed_accounts,
         }
     }
+
+    /// Returns 16 `TriePrefixSets` elements
+    pub fn freeze_to_16_shards(self) -> Result<[TriePrefixSets; 16], ()> {
+        use rayon::prelude::*;
+
+        if self.account_prefix_set.all {
+            return Err(());
+        }
+
+        let account_prefix_set_16: [PrefixSet; 16] = {
+            let mut groups: [Vec<Nibbles>; 16] = Default::default();
+
+            for key in self.account_prefix_set.keys {
+                let nibble = key.first().unwrap();
+                groups[nibble as usize].push(key);
+            }
+
+            groups.par_iter_mut().for_each(|keys| {
+                keys.par_sort_unstable();
+                keys.dedup();
+                keys.shrink_to_fit();
+            });
+
+            groups
+                .into_iter()
+                .map(|keys| PrefixSet { all: false, index: 0, keys: Arc::new(keys) })
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap()
+        };
+
+        let mut storage_prefix_sets_16: [HashMap<B256, PrefixSet>; 16] = Default::default();
+
+        for (hashed_address, prefix_set) in self.storage_prefix_sets {
+            let nibble = hashed_address[0] >> 4;
+            storage_prefix_sets_16[nibble as usize].insert(hashed_address, prefix_set.freeze());
+        }
+
+        let mut destroyed_accounts_16: [HashSet<B256>; 16] = Default::default();
+
+        for hashed_address in self.destroyed_accounts {
+            let nibble = hashed_address[0] >> 4;
+            destroyed_accounts_16[nibble as usize].insert(hashed_address);
+        }
+
+        Ok(account_prefix_set_16
+            .into_iter()
+            .zip(storage_prefix_sets_16)
+            .zip(destroyed_accounts_16)
+            .map(|((account_prefix_set, storage_prefix_sets), destroyed_accounts)| TriePrefixSets {
+                account_prefix_set,
+                storage_prefix_sets,
+                destroyed_accounts,
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap())
+    }
 }
 
 /// Collection of trie prefix sets.

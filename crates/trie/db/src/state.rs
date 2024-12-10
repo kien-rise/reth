@@ -1,5 +1,6 @@
 use crate::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory, PrefixSetLoader};
-use alloy_primitives::{Address, BlockNumber, B256, U256};
+use alloy_primitives::{keccak256, Address, BlockNumber, Bytes, B256, U256};
+use alloy_rlp::Encodable;
 use reth_db::tables;
 use reth_db_api::{
     cursor::DbCursorRO,
@@ -10,8 +11,8 @@ use reth_execution_errors::StateRootError;
 use reth_storage_errors::db::DatabaseError;
 use reth_trie::{
     hashed_cursor::HashedPostStateCursorFactory, trie_cursor::InMemoryTrieCursorFactory,
-    updates::TrieUpdates, HashedPostState, HashedStorage, KeccakKeyHasher, KeyHasher, StateRoot,
-    StateRootProgress, TrieInput,
+    updates::TrieUpdates, HashedPostState, HashedStorage, KeccakKeyHasher, KeyHasher, Nibbles,
+    StateRoot, StateRootProgress, TrieInput,
 };
 use std::{collections::HashMap, ops::RangeInclusive};
 use tracing::debug;
@@ -205,14 +206,102 @@ impl<'a, TX: DbTx> DatabaseStateRoot<'a, TX>
         tx: &'a TX,
         input: TrieInput,
     ) -> Result<(B256, TrieUpdates), StateRootError> {
-        let state_sorted = input.state.into_sorted();
-        let nodes_sorted = input.nodes.into_sorted();
-        StateRoot::new(
-            InMemoryTrieCursorFactory::new(DatabaseTrieCursorFactory::new(tx), &nodes_sorted),
-            HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(tx), &state_sorted),
-        )
-        .with_prefix_sets(input.prefix_sets.freeze())
-        .root_with_updates()
+        let sequential = || {
+            let input = input.clone();
+            let state_sorted = input.state.into_sorted();
+            let nodes_sorted = input.nodes.into_sorted();
+            StateRoot::new(
+                InMemoryTrieCursorFactory::new(DatabaseTrieCursorFactory::new(tx), &nodes_sorted),
+                HashedPostStateCursorFactory::new(
+                    DatabaseHashedCursorFactory::new(tx),
+                    &state_sorted,
+                ),
+            )
+            .with_prefix_sets(input.prefix_sets.freeze())
+            .root_with_updates()
+        };
+
+        let parallel = || -> Result<(B256, TrieUpdates), StateRootError> {
+            use rayon::prelude::*;
+
+            let input = input.clone();
+            let state_sorted = input.state.into_sorted();
+            let nodes_sorted = input.nodes.into_sorted();
+
+            let trie_cursor_factory =
+                InMemoryTrieCursorFactory::new(DatabaseTrieCursorFactory::new(tx), &nodes_sorted);
+            let hashed_cursor_factory = HashedPostStateCursorFactory::new(
+                DatabaseHashedCursorFactory::new(tx),
+                &state_sorted,
+            );
+            let prefix_sets_16 = input.prefix_sets.freeze_to_16_shards().unwrap();
+
+            let trie_updates_16: [_; 16] = prefix_sets_16
+                .into_par_iter()
+                .enumerate()
+                .map(|(index, prefix_sets)| {
+                    StateRoot::new(trie_cursor_factory.clone(), hashed_cursor_factory.clone())
+                        .with_prefix_sets(prefix_sets)
+                        .root_with_updates()
+                        .map(|(_state_root, mut trie_updates)| {
+                            trie_updates.account_nodes.retain(|k, _v| k[0] == index as u8);
+                            trie_updates.removed_nodes.retain(|k| k[0] == index as u8);
+                            trie_updates.storage_tries.retain(|k, _v| (k[0] >> 4) == index as u8);
+                            trie_updates
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .try_into()
+                .unwrap();
+
+            let state_root = {
+                let mut rlp_element_17: Vec<Bytes> = Vec::with_capacity(17);
+                for (index, trie_updates) in trie_updates_16.iter().enumerate() {
+                    let nibble = index as u8;
+                    let root_hash = trie_updates
+                        .account_nodes_ref()
+                        .get(&Nibbles::from_nibbles(&[nibble]))
+                        .and_then(|node| node.root_hash)
+                        .ok_or(DatabaseError::Other(String::from("no sub root hash")))?;
+                    rlp_element_17.push(root_hash.into());
+                }
+                rlp_element_17.push(Bytes::new());
+                let mut rlp_buf = Vec::new();
+                Encodable::encode(&rlp_element_17, &mut rlp_buf);
+                keccak256(rlp_buf)
+            };
+
+            let mut trie_updates = TrieUpdates::default();
+            for t in trie_updates_16 {
+                trie_updates.extend(t);
+            }
+
+            Ok((state_root, trie_updates))
+        };
+
+        let t0 = std::time::Instant::now();
+        let sequential = sequential();
+        let t1 = std::time::Instant::now();
+        let parallel = parallel();
+        let t2 = std::time::Instant::now();
+
+        match (&parallel, &sequential) {
+            (Ok(parallel), Ok(sequential)) => {
+                assert_eq!(parallel, sequential);
+                println!(
+                    "parallel: {:?}, sequential: {:?}",
+                    t1.duration_since(t0),
+                    t2.duration_since(t1)
+                );
+            }
+            (Ok(_), Err(err)) => println!("{:?}", err),
+            (Err(err), Ok(_)) => println!("{:?}", err),
+            (Err(err0), Err(err1)) => println!("({:#?}, {:#?})", err0, err1),
+        }
+        if let (Ok(parallel), Ok(sequential)) = (&parallel, &sequential) {
+            assert_eq!(parallel, sequential);
+        }
+        sequential
     }
 }
 
