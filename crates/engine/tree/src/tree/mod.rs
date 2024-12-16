@@ -682,6 +682,12 @@ where
                 }
             }
 
+            tracing::warn!(
+                "canonical_block_number={:?} last_persisted_block={:?}",
+                self.state.tree_state.canonical_block_number(),
+                self.persistence_state.last_persisted_block.number
+            );
+
             if let Err(err) = self.advance_persistence() {
                 error!(target: "engine::tree", %err, "Advancing persistence failed");
                 return
