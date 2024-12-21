@@ -55,7 +55,7 @@ pub struct ConsistentProvider<N: ProviderNodeTypes> {
     /// Storage provider.
     storage_provider: <ProviderFactory<N> as DatabaseProviderFactory>::Provider,
     /// Head block at time of [`Self`] creation
-    head_block: Option<Arc<BlockState<N::Primitives>>>,
+    head_block: Option<Arc<BlockState<N::Primitives>>>, // here thrice [BlockState]
     /// In-memory canonical state. This is not a snapshot, and can change! Use with caution.
     canonical_in_memory_state: CanonicalInMemoryState<N::Primitives>,
 }

@@ -5,7 +5,7 @@ use crate::{prefix_set::TriePrefixSetsMut, updates::TrieUpdates, HashedPostState
 pub struct TrieInput {
     /// The collection of cached in-memory intermediate trie nodes that
     /// can be reused for computation.
-    pub nodes: TrieUpdates,
+    pub nodes: TrieUpdates, // here once
     /// The in-memory overlay hashed state.
     pub state: HashedPostState,
     /// The collection of prefix sets for the computation. Since the prefix sets _always_

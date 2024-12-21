@@ -34,7 +34,7 @@ use std::{
 /// itself.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct AppendableChain {
-    chain: Chain,
+    chain: Chain, // here twice [Chain]
 }
 
 impl Deref for AppendableChain {

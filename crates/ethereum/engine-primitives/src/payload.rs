@@ -27,7 +27,7 @@ pub struct EthBuiltPayload {
     /// The built block
     pub(crate) block: Arc<SealedBlock>,
     /// Block execution data for the payload, if any.
-    pub(crate) executed_block: Option<ExecutedBlock>,
+    pub(crate) executed_block: Option<ExecutedBlock>, // here twice [ExecutedBlock]
     /// The fees of the block
     pub(crate) fees: U256,
     /// The blobs, proofs, and commitments in the block. If the block is pre-cancun, this will be

@@ -559,7 +559,7 @@ pub struct OpPayloadBuilderCtx<EvmConfig> {
     /// Marker to check whether the job has been cancelled.
     pub cancel: Cancelled,
     /// The currently best payload.
-    pub best_payload: Option<OpBuiltPayload>,
+    pub best_payload: Option<OpBuiltPayload>, // here thrice [OpBuiltPayload]
 }
 
 impl<EvmConfig> OpPayloadBuilderCtx<EvmConfig> {

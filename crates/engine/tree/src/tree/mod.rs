@@ -89,19 +89,19 @@ pub struct TreeState<N: NodePrimitives = EthPrimitives> {
     /// __All__ unique executed blocks by block hash that are connected to the canonical chain.
     ///
     /// This includes blocks of all forks.
-    blocks_by_hash: HashMap<B256, ExecutedBlock<N>>,
+    blocks_by_hash: HashMap<B256, ExecutedBlock<N>>, // here twice [ExecutedBlock]
     /// Executed blocks grouped by their respective block number.
     ///
     /// This maps unique block number to all known blocks for that height.
     ///
     /// Note: there can be multiple blocks at the same height due to forks.
-    blocks_by_number: BTreeMap<BlockNumber, Vec<ExecutedBlock<N>>>,
+    blocks_by_number: BTreeMap<BlockNumber, Vec<ExecutedBlock<N>>>, // here twice [ExecutedBlock]
     /// Map of any parent block hash to its children.
     parent_to_child: HashMap<B256, HashSet<B256>>,
     /// Map of hash to trie updates for canonical blocks that are persisted but not finalized.
     ///
     /// Contains the block number for easy removal.
-    persisted_trie_updates: HashMap<B256, (BlockNumber, Arc<TrieUpdates>)>,
+    persisted_trie_updates: HashMap<B256, (BlockNumber, Arc<TrieUpdates>)>, // here once
     /// Currently tracked canonical head of the chain.
     current_canonical_head: BlockNumHash,
 }
@@ -258,6 +258,7 @@ impl<N: NodePrimitives> TreeState<N> {
                     // finally, move the trie updates
                     self.persisted_trie_updates
                         .insert(removed.block.hash(), (removed.block.number(), removed.trie));
+                    println!("self.persisted_trie_updates.len() = {:?}", self.persisted_trie_updates.len());
                 }
             }
         }
@@ -267,6 +268,7 @@ impl<N: NodePrimitives> TreeState<N> {
     /// Removes all blocks that are below the finalized block, as well as removing non-canonical
     /// sidechains that fork from below the finalized block.
     pub(crate) fn prune_finalized_sidechains(&mut self, finalized_num_hash: BlockNumHash) {
+        println!("prune_finalized_sidechains({:?})", finalized_num_hash);
         let BlockNumHash { number: finalized_num, hash: finalized_hash } = finalized_num_hash;
 
         // We remove disconnected sidechains in three steps:
@@ -290,6 +292,7 @@ impl<N: NodePrimitives> TreeState<N> {
 
         // remove trie updates that are below the finalized block
         self.persisted_trie_updates.retain(|_, (block_num, _)| *block_num > finalized_num);
+        println!("self.persisted_trie_updates.len() = {:?}", self.persisted_trie_updates.len());
 
         // The only block that should remain at the `finalized` number now, is the finalized
         // block, if it exists.
@@ -333,6 +336,7 @@ impl<N: NodePrimitives> TreeState<N> {
         last_persisted_hash: B256,
         finalized_num_hash: Option<BlockNumHash>,
     ) {
+        println!("remove_until({:?}, {:?}, {:?})", upper_bound, last_persisted_hash, finalized_num_hash);
         debug!(target: "engine::tree", ?upper_bound, ?finalized_num_hash, "Removing blocks from the tree");
 
         // If the finalized num is ahead of the upper bound, and exists, we need to instead ensure
@@ -388,7 +392,7 @@ impl<N: NodePrimitives> TreeState<N> {
 #[derive(Debug)]
 pub struct EngineApiTreeState<N: NodePrimitives> {
     /// Tracks the state of the blockchain tree.
-    tree_state: TreeState<N>,
+    tree_state: TreeState<N>, // here twice [TreeState]
     /// Tracks the forkchoice state updates received by the CL.
     forkchoice_state_tracker: ForkchoiceStateTracker,
     /// Buffer of detached blocks.
@@ -477,7 +481,7 @@ where
     consensus: Arc<dyn FullConsensus<N>>,
     payload_validator: V,
     /// Keeps track of internals such as executed and buffered blocks.
-    state: EngineApiTreeState<N>,
+    state: EngineApiTreeState<N>, // here thrice [EngineApiTreeState]
     /// The half for sending messages to the engine.
     ///
     /// This is kept so that we can queue in messages to ourself that we can process later, for
@@ -1242,6 +1246,7 @@ where
                         ));
                     }
                     EngineApiRequest::Beacon(request) => {
+                        println!("EngineApiRequest::Beacon{:?}", request);
                         match request {
                             BeaconEngineMessage::ForkchoiceUpdated {
                                 state,
@@ -1325,6 +1330,7 @@ where
         &mut self,
         ctrl: ControlFlow,
     ) -> Result<(), InsertBlockFatalError> {
+        println!("on_backfill_sync_finished(_)");
         debug!(target: "engine::tree", "received backfill sync finished event");
         self.backfill_sync_state = BackfillSyncState::Idle;
 
@@ -1536,6 +1542,7 @@ where
     /// Assumes that `finish` has been called on the `persistence_state` at least once
     fn on_new_persisted_block(&mut self) -> ProviderResult<()> {
         let finalized = self.state.forkchoice_state_tracker.last_valid_finalized();
+        println!("on_new_persisted_block finalized = {:?}", finalized);
         self.remove_before(self.persistence_state.last_persisted_block, finalized)?;
         self.canonical_in_memory_state.remove_persisted_blocks(BlockNumHash {
             number: self.persistence_state.last_persisted_block.number,
@@ -2607,6 +2614,7 @@ where
         upper_bound: BlockNumHash,
         finalized_hash: Option<B256>,
     ) -> ProviderResult<()> {
+        println!("remove_before({:?}, {:?})", upper_bound, finalized_hash);
         // first fetch the finalized block number and then call the remove_before method on
         // tree_state
         let num = if let Some(hash) = finalized_hash {

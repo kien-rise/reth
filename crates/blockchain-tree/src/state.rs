@@ -11,7 +11,7 @@ pub(crate) struct TreeState {
     /// Keeps track of new unique identifiers for chains
     block_chain_id_generator: u64,
     /// The tracked chains and their current data.
-    pub(crate) chains: HashMap<SidechainId, AppendableChain>,
+    pub(crate) chains: HashMap<SidechainId, AppendableChain>, // here thrice [AppendableChain]
     /// Indices to block and their connection to the canonical chain.
     ///
     /// This gets modified by the tree itself and is read from engine API/RPC to access the pending

@@ -65,7 +65,7 @@ pub struct StateRootConfig<Factory> {
     /// View over the state in the database.
     pub consistent_view: ConsistentDbView<Factory>,
     /// Latest trie input.
-    pub input: Arc<TrieInput>,
+    pub input: Arc<TrieInput>, // here twice [TrieInput]
 }
 
 /// Messages used internally by the state root task
@@ -240,7 +240,7 @@ fn evm_state_to_hashed_post_state(update: EvmState) -> HashedPostState {
 #[derive(Debug)]
 pub struct StateRootTask<Factory, BPF: BlindedProviderFactory> {
     /// Task configuration.
-    config: StateRootConfig<Factory>,
+    config: StateRootConfig<Factory>, // here thrice [StateRootConfig]
     /// Receiver for state root related messages.
     rx: Receiver<StateRootMessage<BPF>>,
     /// Sender for state root related messages.

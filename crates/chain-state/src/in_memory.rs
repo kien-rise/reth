@@ -53,11 +53,11 @@ pub(crate) struct InMemoryStateMetrics {
 #[derive(Debug, Default)]
 pub(crate) struct InMemoryState<N: NodePrimitives = EthPrimitives> {
     /// All canonical blocks that are not on disk yet.
-    blocks: RwLock<HashMap<B256, Arc<BlockState<N>>>>,
+    blocks: RwLock<HashMap<B256, Arc<BlockState<N>>>>, // here thrice [BlockState]
     /// Mapping of block numbers to block hashes.
     numbers: RwLock<BTreeMap<u64, B256>>,
     /// The pending block that has not yet been made canonical.
-    pending: watch::Sender<Option<BlockState<N>>>,
+    pending: watch::Sender<Option<BlockState<N>>>, // here thrice [BlockState]
     /// Metrics for the in-memory state.
     metrics: InMemoryStateMetrics,
 }
@@ -137,7 +137,7 @@ pub(crate) struct CanonicalInMemoryStateInner<N: NodePrimitives> {
     /// head.
     pub(crate) chain_info_tracker: ChainInfoTracker<N>,
     /// Tracks blocks at the tip of the chain that have not been persisted to disk yet.
-    pub(crate) in_memory_state: InMemoryState<N>,
+    pub(crate) in_memory_state: InMemoryState<N>, // here fourth [InMemoryState]
     /// A broadcast stream that emits events when the canonical chain is updated.
     pub(crate) canon_state_notification_sender: CanonStateNotificationSender<N>,
 }
@@ -600,9 +600,9 @@ impl<N: NodePrimitives> CanonicalInMemoryState<N> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BlockState<N: NodePrimitives = EthPrimitives> {
     /// The executed block that determines the state after this block has been executed.
-    block: ExecutedBlock<N>,
+    block: ExecutedBlock<N>, // here twice [ExecutedBlock]
     /// The block's parent block if it exists.
-    parent: Option<Arc<BlockState<N>>>,
+    parent: Option<Arc<BlockState<N>>>, // here twice [BlockState]
 }
 
 #[allow(dead_code)]
@@ -811,7 +811,7 @@ pub struct ExecutedBlock<N: NodePrimitives = EthPrimitives> {
     /// Block's hashed state.
     pub hashed_state: Arc<HashedPostState>,
     /// Trie updates that result of applying the block.
-    pub trie: Arc<TrieUpdates>,
+    pub trie: Arc<TrieUpdates>, // here once
 }
 
 impl<N: NodePrimitives> ExecutedBlock<N> {
@@ -865,15 +865,15 @@ pub enum NewCanonicalChain<N: NodePrimitives = EthPrimitives> {
     /// A simple append to the current canonical head
     Commit {
         /// all blocks that lead back to the canonical head
-        new: Vec<ExecutedBlock<N>>,
+        new: Vec<ExecutedBlock<N>>, // here twice [ExecutedBlock]
     },
     /// A reorged chain consists of two chains that trace back to a shared ancestor block at which
     /// point they diverge.
     Reorg {
         /// All blocks of the _new_ chain
-        new: Vec<ExecutedBlock<N>>,
+        new: Vec<ExecutedBlock<N>>, // here twice [ExecutedBlock]
         /// All blocks of the _old_ chain
-        old: Vec<ExecutedBlock<N>>,
+        old: Vec<ExecutedBlock<N>>, // here twice [ExecutedBlock]
     },
 }
 

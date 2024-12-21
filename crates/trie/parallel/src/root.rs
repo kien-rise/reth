@@ -39,7 +39,7 @@ pub struct ParallelStateRoot<Factory> {
     /// Consistent view of the database.
     view: ConsistentDbView<Factory>,
     /// Trie input.
-    input: TrieInput,
+    input: TrieInput, // here twice [TrieInput]
     /// Parallel state root metrics.
     #[cfg(feature = "metrics")]
     metrics: ParallelStateRootMetrics,

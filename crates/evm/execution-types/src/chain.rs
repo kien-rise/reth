@@ -40,7 +40,7 @@ pub struct Chain<N: NodePrimitives = reth_primitives::EthPrimitives> {
     /// State trie updates after block is added to the chain.
     /// NOTE: Currently, trie updates are present only for
     /// single-block chains that extend the canonical chain.
-    trie_updates: Option<TrieUpdates>,
+    trie_updates: Option<TrieUpdates>, // here once
 }
 
 impl<N: NodePrimitives> Default for Chain<N> {
@@ -566,7 +566,7 @@ pub(super) mod serde_bincode_compat {
     {
         blocks: SealedBlocksWithSenders<'a, N::Block>,
         execution_outcome: Cow<'a, ExecutionOutcome<N::Receipt>>,
-        trie_updates: Option<TrieUpdates<'a>>,
+        trie_updates: Option<TrieUpdates<'a>>, // here once
     }
 
     #[derive(Debug)]

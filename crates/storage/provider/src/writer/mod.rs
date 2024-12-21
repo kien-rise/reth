@@ -168,7 +168,7 @@ where
                 .try_with_senders_unchecked(Arc::unwrap_or_clone(senders))
                 .unwrap();
             self.database().insert_block(sealed_block, StorageLocation::Both)?;
-            tracing::warn!("efa044b3 t={:?}", t.elapsed().as_millis());
+            tracing::warn!("efa044b3 t={:?}", t.elapsed().as_millis()); // 1156
 
             // Write state and changesets to the database.
             // Must be written after blocks because of the receipt lookup.
@@ -178,17 +178,17 @@ where
                 OriginalValuesKnown::No,
                 StorageLocation::StaticFiles,
             )?;
-            tracing::warn!("b200afdd t={:?}", t.elapsed().as_millis());
+            tracing::warn!("b200afdd t={:?}", t.elapsed().as_millis()); // 1082
 
             // insert hashes and intermediate merkle nodes
             let t = std::time::Instant::now();
             self.database()
                 .write_hashed_state(&Arc::unwrap_or_clone(hashed_state).into_sorted())?;
-            tracing::warn!("5c5ec7de t={:?}", t.elapsed().as_millis());
+            tracing::warn!("5c5ec7de t={:?}", t.elapsed().as_millis()); // 1053
 
             let t = std::time::Instant::now();
             self.database().write_trie_updates(&trie)?;
-            tracing::warn!("b36472d9 t={:?}", t.elapsed().as_millis());
+            tracing::warn!("b36472d9 t={:?}", t.elapsed().as_millis()); // 521
         }
 
         // update history indices

@@ -26,7 +26,7 @@ use tracing::trace;
 #[derive(Clone, Debug)]
 pub struct ShareableBlockchainTree<N: NodeTypesWithDB, E> {
     /// `BlockchainTree`
-    pub tree: Arc<RwLock<BlockchainTree<N, E>>>,
+    pub tree: Arc<RwLock<BlockchainTree<N, E>>>, // here thrice [BlockchainTree]
 }
 
 impl<N: NodeTypesWithDB, E> ShareableBlockchainTree<N, E> {

@@ -65,7 +65,7 @@ pub struct BlockchainTree<N: NodeTypesWithDB, E> {
     /// The state of the tree
     ///
     /// Tracks all the chains, the block indices, and the block buffer.
-    state: TreeState,
+    state: TreeState, // here twice [TreeState]
     /// External components (the database, consensus engine etc.)
     externals: TreeExternals<N, E>,
     /// Tree configuration

@@ -554,6 +554,7 @@ where
         on_updated: OnForkChoiceUpdated,
         tx: oneshot::Sender<RethResult<OnForkChoiceUpdated>>,
     ) {
+        println!("on_forkchoice_updated_status({:?}, _, _)", state);
         // send the response to the CL ASAP
         let status = on_updated.forkchoice_status();
         let _ = tx.send(Ok(on_updated));

@@ -23,9 +23,9 @@ pub struct MemoryOverlayStateProviderRef<'a, N: NodePrimitives = reth_primitives
     /// Historical state provider for state lookups that are not found in in-memory blocks.
     pub(crate) historical: Box<dyn StateProvider + 'a>,
     /// The collection of executed parent blocks. Expected order is newest to oldest.
-    pub(crate) in_memory: Vec<ExecutedBlock<N>>,
+    pub(crate) in_memory: Vec<ExecutedBlock<N>>, // here twice [ExecutedBlock]
     /// Lazy-loaded in-memory trie data.
-    pub(crate) trie_state: OnceLock<MemoryOverlayTrieState>,
+    pub(crate) trie_state: OnceLock<MemoryOverlayTrieState>, // here twice [MemoryOverlayTrieState]
 }
 
 /// A state provider that stores references to in-memory blocks along with their state as well as
@@ -35,9 +35,9 @@ pub struct MemoryOverlayStateProvider<N: NodePrimitives = reth_primitives::EthPr
     /// Historical state provider for state lookups that are not found in in-memory blocks.
     pub(crate) historical: Box<dyn StateProvider>,
     /// The collection of executed parent blocks. Expected order is newest to oldest.
-    pub(crate) in_memory: Vec<ExecutedBlock<N>>,
+    pub(crate) in_memory: Vec<ExecutedBlock<N>>, // here twice [ExecutedBlock]
     /// Lazy-loaded in-memory trie data.
-    pub(crate) trie_state: OnceLock<MemoryOverlayTrieState>,
+    pub(crate) trie_state: OnceLock<MemoryOverlayTrieState>, // here twice [MemoryOverlayTrieState]
 }
 
 impl<N: NodePrimitives> MemoryOverlayStateProvider<N> {
@@ -405,7 +405,7 @@ impl<'a, N: NodePrimitives> StateProvider for MemoryOverlayStateProviderRef<'a, 
 #[derive(Clone, Default, Debug)]
 pub(crate) struct MemoryOverlayTrieState {
     /// The collection of aggregated in-memory trie updates.
-    pub(crate) nodes: TrieUpdates,
+    pub(crate) nodes: TrieUpdates, // here once
     /// The collection of hashed state from in-memory blocks.
     pub(crate) state: HashedPostState,
 }

@@ -20,6 +20,7 @@ impl ForkchoiceStateTracker {
     /// If the status is `VALID`, we also update the last valid forkchoice state and set the
     /// `sync_target` to `None`, since we're now fully synced.
     pub fn set_latest(&mut self, state: ForkchoiceState, status: ForkchoiceStatus) {
+        println!("set_latest({:?}, {:?})", state, status);
         if status.is_valid() {
             self.set_valid(state);
         } else if status.is_syncing() {
@@ -31,6 +32,7 @@ impl ForkchoiceStateTracker {
     }
 
     fn set_valid(&mut self, state: ForkchoiceState) {
+        println!("set_valid({:?})", state);
         // we no longer need to sync to this state.
         self.last_syncing = None;
 
