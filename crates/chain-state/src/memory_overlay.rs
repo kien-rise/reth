@@ -119,7 +119,10 @@ impl<N: NodePrimitives> StateRootProvider for MemoryOverlayStateProvider<N> {
         &self,
         state: HashedPostState,
     ) -> ProviderResult<(B256, TrieUpdates)> {
-        self.state_root_from_nodes_with_updates(TrieInput::from_state(state))
+        let t = std::time::Instant::now();
+        let result = self.state_root_from_nodes_with_updates(TrieInput::from_state(state));
+        tracing::warn!("8a8183ac-fc8e-4745-8935-1bcc0af909e8 state_root_with_updates: in_memory.len()={:?} t={:?}", self.in_memory.len(), t.elapsed().as_millis());
+        result
     }
     fn state_root_from_nodes_with_updates(
         &self,
