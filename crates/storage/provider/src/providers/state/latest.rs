@@ -88,8 +88,14 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
         &self,
         input: TrieInput,
     ) -> ProviderResult<(B256, TrieUpdates)> {
-        StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
+        let t = std::time::Instant::now();
+        let result = StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
+            .map_err(|err| ProviderError::Database(err.into()));
+        println!(
+            "b0b267a0-34bf-4db2-9f15-c065fbd406f7 state_root_from_nodes_with_updates: t={:?}",
+            t.elapsed().as_micros()
+        );
+        result
     }
 }
 

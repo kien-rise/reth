@@ -316,9 +316,15 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootP
         &self,
         mut input: TrieInput,
     ) -> ProviderResult<(B256, TrieUpdates)> {
+        let t = std::time::Instant::now();
         input.prepend(self.revert_state()?);
-        StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
+        let result = StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
+            .map_err(|err| ProviderError::Database(err.into()));
+        println!(
+            "c7ccb34f-eda4-4d35-b4fb-55693b468677 state_root_from_nodes_with_updates: t={:?}",
+            t.elapsed().as_micros()
+        );
+        result
     }
 }
 
