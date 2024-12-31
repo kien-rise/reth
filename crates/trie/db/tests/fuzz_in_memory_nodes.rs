@@ -8,7 +8,7 @@ use reth_db::{
     transaction::DbTxMut,
 };
 use reth_primitives::{Account, StorageEntry};
-use reth_provider::test_utils::create_test_provider_factory;
+use reth_provider::{test_utils::create_test_provider_factory, TrieWriter};
 use reth_trie::{
     test_utils::{state_root_prehashed, storage_root_prehashed},
     trie_cursor::InMemoryTrieCursorFactory,
@@ -64,7 +64,9 @@ proptest! {
                 .root_with_updates()
                 .unwrap();
 
-            trie_nodes.extend(trie_updates);
+            // RISE: be realistic, put some data in DB
+            provider.write_trie_updates(&trie_updates).unwrap();
+            trie_nodes = trie_updates;
 
             // Verify the result
             let expected_root = state_root_prehashed(

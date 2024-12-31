@@ -3,7 +3,7 @@ use alloy_primitives::B256;
 use reth_storage_errors::db::DatabaseError;
 
 /// Represents a branch node in the trie.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TrieBranchNode {
     /// The key associated with the node.
     pub key: Nibbles,
@@ -21,7 +21,7 @@ impl TrieBranchNode {
 }
 
 /// Represents variants of trie nodes returned by the iteration.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TrieElement<Value> {
     /// Branch node.
     Branch(TrieBranchNode),

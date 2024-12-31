@@ -1,6 +1,6 @@
 use crate::{
-    hashed_cursor::{HashedCursorFactory, HashedStorageCursor},
-    node_iter::{TrieElement, TrieNodeIter},
+    hashed_cursor::{HashedCursor, HashedCursorFactory, HashedStorageCursor},
+    node_iter::{TrieBranchNode, TrieElement, TrieNodeIter},
     prefix_set::{PrefixSet, TriePrefixSets},
     progress::{IntermediateStateRootState, StateRootProgress},
     stats::TrieTracker,
@@ -10,9 +10,10 @@ use crate::{
     HashBuilder, Nibbles, TrieAccount, TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
 use alloy_consensus::EMPTY_ROOT_HASH;
-use alloy_primitives::{keccak256, Address, B256};
+use alloy_primitives::{keccak256, map::HashSet, Address, B256};
 use alloy_rlp::{BufMut, Encodable};
 use reth_execution_errors::{StateRootError, StorageRootError};
+use reth_primitives::Account;
 use tracing::trace;
 
 #[cfg(feature = "metrics")]
@@ -110,6 +111,131 @@ where
     T: TrieCursorFactory + Clone,
     H: HashedCursorFactory + Clone,
 {
+    fn get_branches(&self) -> Result<(Vec<TrieBranchNode>, HashSet<Nibbles>), StateRootError> {
+        let mut branches: Vec<_> = Vec::new();
+        let mut walker = TrieWalker::new(
+            self.trie_cursor_factory.account_trie_cursor()?,
+            self.prefix_sets.account_prefix_set.clone(),
+        )
+        .with_deletions_retained(true);
+        while let Some(key) = walker.key() {
+            if walker.can_skip_current_node {
+                branches.push(TrieBranchNode::new(
+                    key.clone(),
+                    walker.hash().unwrap(),
+                    walker.children_are_in_trie(),
+                ))
+            }
+            walker.advance()?;
+        }
+        let removed_keys = walker.take_removed_keys();
+        Ok((branches, removed_keys))
+    }
+
+    fn get_leaves(
+        &self,
+        hashed_account_cursor: &mut H::AccountCursor,
+        start: Option<B256>,
+        end: Option<B256>,
+    ) -> Result<Vec<(B256, Account)>, StateRootError> {
+        let Some(start) = start else {
+            return Ok(Vec::new());
+        };
+        let mut current = hashed_account_cursor.seek(start)?;
+        let mut leaves = Vec::new();
+        while let Some((k, v)) = current {
+            if end.is_some_and(|end| k >= end) {
+                break;
+            }
+            leaves.push((k, v));
+            current = hashed_account_cursor.next()?;
+        }
+        Ok(leaves)
+    }
+
+    fn get_trie_elements(
+        &self,
+        branches: Vec<TrieBranchNode>,
+    ) -> Result<
+        impl Iterator<Item = TrieElement<<H::AccountCursor as HashedCursor>::Value>>,
+        StateRootError,
+    > {
+        let mut hashed_account_cursor = self.hashed_cursor_factory.hashed_account_cursor()?;
+        let mut all_leaves = Vec::with_capacity(branches.len());
+        let mut start = Some(B256::ZERO);
+        for branch in branches.iter() {
+            let branch_start = B256::right_padding_from(&branch.key.pack());
+            let branch_end =
+                branch.key.increment().map(|nibbles| B256::right_padding_from(&nibbles.pack()));
+            let leaves = self.get_leaves(&mut hashed_account_cursor, start, Some(branch_start))?;
+            all_leaves.push(leaves);
+            start = branch_end;
+        }
+        let remaining_leaves = self.get_leaves(&mut hashed_account_cursor, start, None)?;
+        Ok(all_leaves
+            .into_iter()
+            .zip(branches)
+            .flat_map(|(leaves, branch)| {
+                leaves
+                    .into_iter()
+                    .map(|(k, v)| TrieElement::Leaf(k, v))
+                    .chain(std::iter::once(TrieElement::Branch(branch)))
+            })
+            .chain(remaining_leaves.into_iter().map(|(k, v)| TrieElement::Leaf(k, v))))
+    }
+
+    fn faster_root_with_updates(&self) -> Result<(B256, TrieUpdates), StateRootError> {
+        let (branches, removed_keys) = self.get_branches()?;
+        let trie_elements = self.get_trie_elements(branches)?;
+
+        let mut account_rlp = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
+        let mut tracker = TrieTracker::default();
+        let mut trie_updates = TrieUpdates::default();
+        let mut hash_builder = HashBuilder::default().with_updates(true);
+
+        for node in trie_elements {
+            match node {
+                TrieElement::Branch(node) => {
+                    tracker.inc_branch();
+                    hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
+                }
+                TrieElement::Leaf(hashed_address, account) => {
+                    tracker.inc_leaf();
+
+                    let storage_root_calculator = StorageRoot::new_hashed(
+                        self.trie_cursor_factory.clone(),
+                        self.hashed_cursor_factory.clone(),
+                        hashed_address,
+                        self.prefix_sets
+                            .storage_prefix_sets
+                            .get(&hashed_address)
+                            .cloned()
+                            .unwrap_or_default(),
+                        #[cfg(feature = "metrics")]
+                        self.metrics.storage_trie.clone(),
+                    );
+
+                    let (storage_root, _, storage_updates) =
+                        storage_root_calculator.root_with_updates()?;
+                    trie_updates.insert_storage_updates(hashed_address, storage_updates);
+
+                    account_rlp.clear();
+                    let account = TrieAccount::from((account, storage_root));
+                    account.encode(&mut account_rlp as &mut dyn BufMut);
+                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+                }
+            }
+        }
+
+        let root = hash_builder.root();
+        trie_updates.finalize(hash_builder, removed_keys, &self.prefix_sets.destroyed_accounts);
+
+        #[cfg(feature = "metrics")]
+        self.metrics.state_trie.record(tracker.finish());
+
+        Ok((root, trie_updates))
+    }
+
     /// Walks the intermediate nodes of existing state trie (if any) and hashed entries. Feeds the
     /// nodes into the hash builder. Collects the updates in the process.
     ///
@@ -119,10 +245,24 @@ where
     ///
     /// The intermediate progress of state root computation and the trie updates.
     pub fn root_with_updates(self) -> Result<(B256, TrieUpdates), StateRootError> {
-        match self.with_no_threshold().calculate(true)? {
+        let t = std::time::Instant::now();
+        let faster = self.faster_root_with_updates();
+        let t_faster = t.elapsed();
+
+        let t = std::time::Instant::now();
+        let slower = match self.with_no_threshold().calculate(true)? {
             StateRootProgress::Complete(root, _, updates) => Ok((root, updates)),
             StateRootProgress::Progress(..) => unreachable!(), // unreachable threshold
-        }
+        };
+        let t_slower = t.elapsed();
+
+        assert_eq!(faster, slower);
+        println!(
+            "52cd9629-0528-4e6a-9b26-15a0d911e359 | faster={:?} | slower={:?}",
+            t_faster.as_micros(),
+            t_slower.as_micros()
+        );
+        slower
     }
 
     /// Walks the intermediate nodes of existing state trie (if any) and hashed entries. Feeds the
@@ -257,7 +397,7 @@ where
         let root = hash_builder.root();
 
         let removed_keys = account_node_iter.walker.take_removed_keys();
-        trie_updates.finalize(hash_builder, removed_keys, self.prefix_sets.destroyed_accounts);
+        trie_updates.finalize(hash_builder, removed_keys, &self.prefix_sets.destroyed_accounts);
 
         let stats = tracker.finish();
 
