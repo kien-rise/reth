@@ -26,26 +26,41 @@ where
     K: PartialOrd + Clone,
     V: Clone,
 {
-    /// Advances the cursor forward while `comparator` returns `true` or until the collection is
-    /// exhausted. Returns the first entry for which `comparator` returns `false` or `None`.
-    fn advance_while_false(&mut self, comparator: impl Fn(&K) -> bool) -> Option<(K, V)> {
-        let mut entry = self.entries.get(self.index);
-        while entry.is_some_and(|entry| comparator(&entry.0)) {
-            self.index += 1;
-            entry = self.entries.get(self.index);
-        }
-        entry.cloned()
-    }
-
     /// Returns the first entry from the current cursor position that's greater or equal to the
     /// provided key. This method advances the cursor forward.
     pub fn seek(&mut self, key: &K) -> Option<(K, V)> {
-        self.advance_while_false(|k| k < key)
+        if self.index > 0 {
+            self.index -= 1; // for backward compatibility
+        }
+        let mut entry = self.entries.get(self.index);
+        self.index += entry.is_some() as usize;
+
+        while entry.is_some_and(|(k, _v)| k < key) {
+            entry = self.entries.get(self.index);
+            self.index += entry.is_some() as usize;
+        }
+
+        entry.cloned()
     }
 
-    /// Returns the first entry from the current cursor position that's greater than the provided
-    /// key. This method advances the cursor forward.
     pub fn first_after(&mut self, key: &K) -> Option<(K, V)> {
-        self.advance_while_false(|k| k <= key)
+        if self.index > 0 {
+            self.index -= 1; // for backward compatibility
+        }
+        let mut entry = self.entries.get(self.index);
+        self.index += entry.is_some() as usize;
+
+        while entry.is_some_and(|(k, _v)| k <= key) {
+            entry = self.entries.get(self.index);
+            self.index += entry.is_some() as usize;
+        }
+
+        entry.cloned()
+    }
+
+    pub fn next(&mut self) -> Option<(K, V)> {
+        let entry = self.entries.get(self.index);
+        self.index += entry.is_some() as usize;
+        entry.cloned()
     }
 }

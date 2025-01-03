@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use super::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
 use crate::{
     forward_cursor::ForwardInMemoryCursor, HashedAccountsSorted, HashedPostStateSorted,
@@ -26,8 +28,9 @@ impl<'a, CF: HashedCursorFactory> HashedCursorFactory for HashedPostStateCursorF
     type StorageCursor = HashedPostStateStorageCursor<'a, CF::StorageCursor>;
 
     fn hashed_account_cursor(&self) -> Result<Self::AccountCursor, DatabaseError> {
-        let cursor = self.cursor_factory.hashed_account_cursor()?;
-        Ok(HashedPostStateAccountCursor::new(cursor, &self.post_state.accounts))
+        // let cursor = self.cursor_factory.hashed_account_cursor()?;
+        let cursor_cloned = self.cursor_factory.hashed_account_cursor()?;
+        Ok(HashedPostStateAccountCursor::new(cursor_cloned, &self.post_state.accounts))
     }
 
     fn hashed_storage_cursor(
@@ -42,16 +45,18 @@ impl<'a, CF: HashedCursorFactory> HashedCursorFactory for HashedPostStateCursorF
 /// The cursor to iterate over post state hashed accounts and corresponding database entries.
 /// It will always give precedence to the data from the hashed post state.
 #[derive(Debug)]
-pub struct HashedPostStateAccountCursor<'a, C> {
+pub struct HashedPostStateAccountCursor<'a, C: HashedCursor<Value = Account>> {
     /// The database cursor.
-    cursor: C,
+    cursor_cloned: C,
     /// Forward-only in-memory cursor over accounts.
     post_state_cursor: ForwardInMemoryCursor<'a, B256, Account>,
     /// Reference to the collection of account keys that were destroyed.
     destroyed_accounts: &'a B256HashSet,
     /// The last hashed account that was returned by the cursor.
     /// De facto, this is a current cursor position.
-    last_account: Option<B256>,
+    // last_account: Option<B256>,
+    peeked_cursor: Option<Option<(B256, Account)>>,
+    peeked_post_state_cursor: Option<Option<(B256, Account)>>,
 }
 
 impl<'a, C> HashedPostStateAccountCursor<'a, C>
@@ -59,10 +64,46 @@ where
     C: HashedCursor<Value = Account>,
 {
     /// Create new instance of [`HashedPostStateAccountCursor`].
-    pub const fn new(cursor: C, post_state_accounts: &'a HashedAccountsSorted) -> Self {
+    pub const fn new(
+        cursor_cloned: C,
+        post_state_accounts: &'a HashedAccountsSorted,
+    ) -> Self {
         let post_state_cursor = ForwardInMemoryCursor::new(&post_state_accounts.accounts);
         let destroyed_accounts = &post_state_accounts.destroyed_accounts;
-        Self { cursor, post_state_cursor, destroyed_accounts, last_account: None }
+        Self {
+            cursor_cloned,
+            post_state_cursor,
+            destroyed_accounts,
+            // last_account: None,
+            peeked_cursor: None,
+            peeked_post_state_cursor: None,
+        }
+    }
+
+    fn take_cursor(&mut self) -> Result<Option<(B256, Account)>, DatabaseError> {
+        if let Some(entry) = self.peeked_cursor.take() {
+            return Ok(entry);
+        }
+        let mut db_entry = self.cursor_cloned.next()?;
+        while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
+            db_entry = self.cursor_cloned.next()?;
+        }
+        Ok(db_entry)
+    }
+
+    fn untake_cursor(&mut self, entry: Option<(B256, Account)>) {
+        self.peeked_cursor = Some(entry);
+    }
+
+    fn take_post_state_cursor(&mut self) -> Option<(B256, Account)> {
+        if let Some(entry) = self.peeked_post_state_cursor.take() {
+            return entry;
+        }
+        self.post_state_cursor.next()
+    }
+
+    fn untake_post_state_cursor(&mut self, entry: Option<(B256, Account)>) {
+        self.peeked_post_state_cursor = Some(entry);
     }
 
     /// Returns `true` if the account has been destroyed.
@@ -74,59 +115,109 @@ where
         self.destroyed_accounts.contains(account)
     }
 
-    fn seek_inner(&mut self, key: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
-        // Take the next account from the post state with the key greater than or equal to the
-        // sought key.
+    fn fast_seek_inner(&mut self, key: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
+        self.peeked_cursor = None;
+        self.peeked_post_state_cursor = None;
+
         let post_state_entry = self.post_state_cursor.seek(&key);
 
-        // It's an exact match, return the account from post state without looking up in the
-        // database.
-        if post_state_entry.is_some_and(|entry| entry.0 == key) {
-            return Ok(post_state_entry)
-        }
-
-        // It's not an exact match, reposition to the first greater or equal account that wasn't
-        // cleared.
-        let mut db_entry = self.cursor.seek(key)?;
+        let mut db_entry = self.cursor_cloned.seek(key)?;
         while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
-            db_entry = self.cursor.next()?;
+            db_entry = self.cursor_cloned.next()?;
         }
 
-        // Compare two entries and return the lowest.
-        Ok(Self::compare_entries(post_state_entry, db_entry))
+        match Self::cmp(&db_entry, &post_state_entry) {
+            Ordering::Less => {
+                self.untake_post_state_cursor(post_state_entry);
+                Ok(db_entry)
+            }
+            Ordering::Equal => Ok(post_state_entry),
+            Ordering::Greater => {
+                self.untake_cursor(db_entry);
+                Ok(post_state_entry)
+            }
+        }
     }
 
-    fn next_inner(&mut self, last_account: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
-        // Take the next account from the post state with the key greater than the last sought key.
-        let post_state_entry = self.post_state_cursor.first_after(&last_account);
+    // fn seek_inner(&mut self, key: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
+    //     // Take the next account from the post state with the key greater than or equal to the
+    //     // sought key.
+    //     let post_state_entry = self.post_state_cursor.seek(&key);
 
-        // If post state was given precedence or account was cleared, move the cursor forward.
-        let mut db_entry = self.cursor.seek(last_account)?;
-        while db_entry.as_ref().is_some_and(|(address, _)| {
-            address <= &last_account || self.is_account_cleared(address)
-        }) {
-            db_entry = self.cursor.next()?;
+    //     // It's an exact match, return the account from post state without looking up in the
+    //     // database.
+    //     if post_state_entry.is_some_and(|entry| entry.0 == key) {
+    //         return Ok(post_state_entry)
+    //     }
+
+    //     // It's not an exact match, reposition to the first greater or equal account that wasn't
+    //     // cleared.
+    //     let mut db_entry = self.cursor.seek(key)?;
+    //     while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
+    //         db_entry = self.cursor.next()?;
+    //     }
+
+    //     // Compare two entries and return the lowest.
+    //     Ok(Self::compare_entries(post_state_entry, db_entry))
+    // }
+
+    // fn next_inner(&mut self, last_account: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
+    //     // Take the next account from the post state with the key greater than the last sought key.
+    //     let post_state_entry = self.post_state_cursor.first_after(&last_account);
+
+    //     // If post state was given precedence or account was cleared, move the cursor forward.
+    //     let mut db_entry = self.cursor.seek(last_account)?;
+    //     while db_entry.as_ref().is_some_and(|(address, _)| {
+    //         address <= &last_account || self.is_account_cleared(address)
+    //     }) {
+    //         db_entry = self.cursor.next()?;
+    //     }
+
+    //     // Compare two entries and return the lowest.
+    //     Ok(Self::compare_entries(post_state_entry, db_entry))
+    // }
+
+    fn fast_next_inner(&mut self) -> Result<Option<(B256, Account)>, DatabaseError> {
+        let db_entry = self.take_cursor()?;
+        let post_state_entry = self.take_post_state_cursor();
+
+        match Self::cmp(&db_entry, &post_state_entry) {
+            Ordering::Less => {
+                self.untake_post_state_cursor(post_state_entry);
+                Ok(db_entry)
+            }
+            Ordering::Equal => Ok(post_state_entry),
+            Ordering::Greater => {
+                self.untake_cursor(db_entry);
+                Ok(post_state_entry)
+            }
         }
-
-        // Compare two entries and return the lowest.
-        Ok(Self::compare_entries(post_state_entry, db_entry))
     }
 
     /// Return the account with the lowest hashed account key.
     ///
     /// Given the next post state and database entries, return the smallest of the two.
     /// If the account keys are the same, the post state entry is given precedence.
-    fn compare_entries(
-        post_state_item: Option<(B256, Account)>,
-        db_item: Option<(B256, Account)>,
-    ) -> Option<(B256, Account)> {
-        if let Some((post_state_entry, db_entry)) = post_state_item.zip(db_item) {
-            // If both are not empty, return the smallest of the two
-            // Post state is given precedence if keys are equal
-            Some(if post_state_entry.0 <= db_entry.0 { post_state_entry } else { db_entry })
-        } else {
-            // Return either non-empty entry
-            db_item.or(post_state_item)
+    // fn compare_entries(
+    //     post_state_item: Option<(B256, Account)>,
+    //     db_item: Option<(B256, Account)>,
+    // ) -> Option<(B256, Account)> {
+    //     if let Some((post_state_entry, db_entry)) = post_state_item.zip(db_item) {
+    //         // If both are not empty, return the smallest of the two
+    //         // Post state is given precedence if keys are equal
+    //         Some(if post_state_entry.0 <= db_entry.0 { post_state_entry } else { db_entry })
+    //     } else {
+    //         // Return either non-empty entry
+    //         db_item.or(post_state_item)
+    //     }
+    // }
+
+    fn cmp(lhs: &Option<(B256, Account)>, rhs: &Option<(B256, Account)>) -> Ordering {
+        match (lhs, rhs) {
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(_), None) => Ordering::Less,
+            (Some(lhs), Some(rhs)) => Ord::cmp(&lhs.0, &rhs.0),
         }
     }
 }
@@ -146,10 +237,13 @@ where
     /// The returned account key is memoized and the cursor remains positioned at that key until
     /// [`HashedCursor::seek`] or [`HashedCursor::next`] are called.
     fn seek(&mut self, key: B256) -> Result<Option<(B256, Self::Value)>, DatabaseError> {
-        // Find the closes account.
-        let entry = self.seek_inner(key)?;
-        self.last_account = entry.as_ref().map(|entry| entry.0);
-        Ok(entry)
+        self.fast_seek_inner(key)
+        // let fast = self.fast_seek_inner(key)?;
+        // // Find the closes account.
+        // let entry = self.seek_inner(key)?;
+        // self.last_account = entry.as_ref().map(|entry| entry.0);
+        // assert_eq!(entry, fast);
+        // Ok(entry)
     }
 
     /// Retrieve the next entry from the cursor.
@@ -160,16 +254,19 @@ where
     /// NOTE: This function will not return any entry unless [`HashedCursor::seek`] has been
     /// called.
     fn next(&mut self) -> Result<Option<(B256, Self::Value)>, DatabaseError> {
-        let next = match self.last_account {
-            Some(account) => {
-                let entry = self.next_inner(account)?;
-                self.last_account = entry.as_ref().map(|entry| entry.0);
-                entry
-            }
-            // no previous entry was found
-            None => None,
-        };
-        Ok(next)
+        self.fast_next_inner()
+        // let fast_next = self.fast_next_inner()?;
+        // let next = match self.last_account {
+        //     Some(account) => {
+        //         let entry = self.next_inner(account)?;
+        //         self.last_account = entry.as_ref().map(|entry| entry.0);
+        //         entry
+        //     }
+        //     // no previous entry was found
+        //     None => None,
+        // };
+        // assert_eq!(next, fast_next);
+        // Ok(next)
     }
 }
 

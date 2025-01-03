@@ -4,23 +4,25 @@ use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     transaction::DbTx,
 };
-use reth_primitives::Account;
+use reth_primitives::{Account, StorageEntry};
 use reth_trie::hashed_cursor::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
 
 /// A struct wrapping database transaction that implements [`HashedCursorFactory`].
 #[derive(Debug)]
-pub struct DatabaseHashedCursorFactory<'a, TX>(&'a TX);
+pub struct DatabaseHashedCursorFactory<'a, TX> {
+    tx: &'a TX,
+}
 
 impl<TX> Clone for DatabaseHashedCursorFactory<'_, TX> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self { tx: self.tx }
     }
 }
 
 impl<'a, TX> DatabaseHashedCursorFactory<'a, TX> {
     /// Create new database hashed cursor factory.
     pub const fn new(tx: &'a TX) -> Self {
-        Self(tx)
+        Self { tx }
     }
 }
 
@@ -30,7 +32,7 @@ impl<TX: DbTx> HashedCursorFactory for DatabaseHashedCursorFactory<'_, TX> {
         DatabaseHashedStorageCursor<<TX as DbTx>::DupCursor<tables::HashedStorages>>;
 
     fn hashed_account_cursor(&self) -> Result<Self::AccountCursor, reth_db::DatabaseError> {
-        Ok(DatabaseHashedAccountCursor(self.0.cursor_read::<tables::HashedAccounts>()?))
+        Ok(DatabaseHashedAccountCursor(self.tx.cursor_read::<tables::HashedAccounts>()?))
     }
 
     fn hashed_storage_cursor(
@@ -38,7 +40,7 @@ impl<TX: DbTx> HashedCursorFactory for DatabaseHashedCursorFactory<'_, TX> {
         hashed_address: B256,
     ) -> Result<Self::StorageCursor, reth_db::DatabaseError> {
         Ok(DatabaseHashedStorageCursor::new(
-            self.0.cursor_dup_read::<tables::HashedStorages>()?,
+            self.tx.cursor_dup_read::<tables::HashedStorages>()?,
             hashed_address,
         ))
     }
@@ -80,12 +82,36 @@ pub struct DatabaseHashedStorageCursor<C> {
     cursor: C,
     /// Target hashed address of the account that the storage belongs to.
     hashed_address: B256,
+    /// Last query (request, response)
+    last_query: Option<(B256, Option<StorageEntry>)>,
 }
 
-impl<C> DatabaseHashedStorageCursor<C> {
+impl<C> DatabaseHashedStorageCursor<C>
+where
+    C: DbCursorRO<tables::HashedStorages> + DbDupCursorRO<tables::HashedStorages>,
+{
     /// Create new [`DatabaseHashedStorageCursor`].
     pub const fn new(cursor: C, hashed_address: B256) -> Self {
-        Self { cursor, hashed_address }
+        Self { cursor, hashed_address, last_query: None }
+    }
+}
+
+fn increment(mut value: B256) -> Option<B256> {
+    let mut i = B256::len_bytes();
+
+    loop {
+        if i == 0 {
+            return None
+        } else {
+            i -= 1;
+        }
+
+        if value[i] < 0xff {
+            value[i] += 1;
+            return Some(value)
+        } else {
+            value[i] = 0;
+        }
     }
 }
 
@@ -99,11 +125,26 @@ where
         &mut self,
         subkey: B256,
     ) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
-        Ok(self.cursor.seek_by_key_subkey(self.hashed_address, subkey)?.map(|e| (e.key, e.value)))
+        if let Some((req, res)) = self.last_query {
+            if req <= subkey && res.is_none_or(|res| subkey <= res.key) {
+                return Ok(res.map(|e| (e.key, e.value)));
+            }
+        }
+        let entry = self.cursor.seek_by_key_subkey(self.hashed_address, subkey)?;
+        self.last_query = Some((subkey, entry));
+        Ok(entry.map(|e| (e.key, e.value)))
     }
 
     fn next(&mut self) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
-        Ok(self.cursor.next_dup_val()?.map(|e| (e.key, e.value)))
+        let Some((_, Some(res))) = self.last_query else {
+            return Ok(None);
+        };
+        let Some(new_req) = increment(res.key) else {
+            return Ok(None);
+        };
+        let entry = self.cursor.next_dup_val()?;
+        self.last_query = Some((new_req, entry));
+        Ok(entry.map(|e| (e.key, e.value)))
     }
 }
 
