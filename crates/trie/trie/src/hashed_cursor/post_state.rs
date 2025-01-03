@@ -47,15 +47,14 @@ impl<'a, CF: HashedCursorFactory> HashedCursorFactory for HashedPostStateCursorF
 #[derive(Debug)]
 pub struct HashedPostStateAccountCursor<'a, C: HashedCursor<Value = Account>> {
     /// The database cursor.
-    cursor_cloned: C,
+    database_cursor: C,
     /// Forward-only in-memory cursor over accounts.
     post_state_cursor: ForwardInMemoryCursor<'a, B256, Account>,
     /// Reference to the collection of account keys that were destroyed.
     destroyed_accounts: &'a B256HashSet,
-    /// The last hashed account that was returned by the cursor.
-    /// De facto, this is a current cursor position.
-    // last_account: Option<B256>,
-    peeked_cursor: Option<Option<(B256, Account)>>,
+    /// Peeked entry from `database_cursor`
+    peeked_database_cursor: Option<Option<(B256, Account)>>,
+    /// Peeked entry from `post_state_cursor`
     peeked_post_state_cursor: Option<Option<(B256, Account)>>,
 }
 
@@ -64,43 +63,77 @@ where
     C: HashedCursor<Value = Account>,
 {
     /// Create new instance of [`HashedPostStateAccountCursor`].
-    pub const fn new(
-        cursor_cloned: C,
-        post_state_accounts: &'a HashedAccountsSorted,
-    ) -> Self {
+    pub const fn new(database_cursor: C, post_state_accounts: &'a HashedAccountsSorted) -> Self {
         let post_state_cursor = ForwardInMemoryCursor::new(&post_state_accounts.accounts);
         let destroyed_accounts = &post_state_accounts.destroyed_accounts;
         Self {
-            cursor_cloned,
+            database_cursor,
             post_state_cursor,
             destroyed_accounts,
-            // last_account: None,
-            peeked_cursor: None,
+            peeked_database_cursor: None,
             peeked_post_state_cursor: None,
         }
     }
 
-    fn take_cursor(&mut self) -> Result<Option<(B256, Account)>, DatabaseError> {
-        if let Some(entry) = self.peeked_cursor.take() {
-            return Ok(entry);
+    fn peek_database_cursor(&mut self) -> Result<&Option<(B256, Account)>, DatabaseError> {
+        if self.peeked_database_cursor.is_none() {
+            let mut db_entry = self.database_cursor.next()?;
+            while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
+                db_entry = self.database_cursor.next()?;
+            }
+            self.peeked_database_cursor = Some(db_entry);
         }
-        let mut db_entry = self.cursor_cloned.next()?;
-        while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
-            db_entry = self.cursor_cloned.next()?;
-        }
-        Ok(db_entry)
+        Ok(self.peeked_database_cursor.as_ref().unwrap())
     }
+
+    fn next_database_cursor(&mut self) -> Result<Option<(B256, Account)>, DatabaseError> {
+        if let Some(peeked) = self.peeked_database_cursor.take() {
+            Ok(peeked)
+        } else {
+            let mut db_entry = self.database_cursor.next()?;
+            while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
+                db_entry = self.database_cursor.next()?;
+            }
+            Ok(db_entry)
+        }
+    }
+
+    // fn take_database_cursor(&mut self) -> Result<Option<(B256, Account)>, DatabaseError> {
+    //     if let Some(entry) = self.peeked_database_cursor.take() {
+    //         return Ok(entry);
+    //     }
+    //     let mut db_entry = self.database_cursor.next()?;
+    //     while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
+    //         db_entry = self.database_cursor.next()?;
+    //     }
+    //     Ok(db_entry)
+    // }
 
     fn untake_cursor(&mut self, entry: Option<(B256, Account)>) {
-        self.peeked_cursor = Some(entry);
+        self.peeked_database_cursor = Some(entry);
     }
 
-    fn take_post_state_cursor(&mut self) -> Option<(B256, Account)> {
-        if let Some(entry) = self.peeked_post_state_cursor.take() {
-            return entry;
+    fn peek_post_state_cursor(&mut self) -> &Option<(B256, Account)> {
+        if self.peeked_post_state_cursor.is_none() {
+            self.peeked_post_state_cursor = Some(self.post_state_cursor.next());
         }
-        self.post_state_cursor.next()
+        self.peeked_post_state_cursor.as_ref().unwrap()
     }
+
+    fn next_post_state_cursor(&mut self) -> Option<(B256, Account)> {
+        if let Some(peeked) = self.peeked_post_state_cursor.take() {
+            peeked
+        } else {
+            self.post_state_cursor.next()
+        }
+    }
+
+    // fn take_post_state_cursor(&mut self) -> Option<(B256, Account)> {
+    //     if let Some(entry) = self.peeked_post_state_cursor.take() {
+    //         return entry;
+    //     }
+    //     self.post_state_cursor.next()
+    // }
 
     fn untake_post_state_cursor(&mut self, entry: Option<(B256, Account)>) {
         self.peeked_post_state_cursor = Some(entry);
@@ -116,14 +149,14 @@ where
     }
 
     fn fast_seek_inner(&mut self, key: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
-        self.peeked_cursor = None;
+        self.peeked_database_cursor = None;
         self.peeked_post_state_cursor = None;
 
         let post_state_entry = self.post_state_cursor.seek(&key);
 
-        let mut db_entry = self.cursor_cloned.seek(key)?;
+        let mut db_entry = self.database_cursor.seek(key)?;
         while db_entry.as_ref().is_some_and(|(address, _)| self.is_account_cleared(address)) {
-            db_entry = self.cursor_cloned.next()?;
+            db_entry = self.database_cursor.next()?;
         }
 
         match Self::cmp(&db_entry, &post_state_entry) {
@@ -161,9 +194,10 @@ where
     //     Ok(Self::compare_entries(post_state_entry, db_entry))
     // }
 
-    // fn next_inner(&mut self, last_account: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
-    //     // Take the next account from the post state with the key greater than the last sought key.
-    //     let post_state_entry = self.post_state_cursor.first_after(&last_account);
+    // fn next_inner(&mut self, last_account: B256) -> Result<Option<(B256, Account)>,
+    // DatabaseError> {     // Take the next account from the post state with the key greater
+    // than the last sought key.     let post_state_entry =
+    // self.post_state_cursor.first_after(&last_account);
 
     //     // If post state was given precedence or account was cleared, move the cursor forward.
     //     let mut db_entry = self.cursor.seek(last_account)?;
@@ -178,18 +212,21 @@ where
     // }
 
     fn fast_next_inner(&mut self) -> Result<Option<(B256, Account)>, DatabaseError> {
-        let db_entry = self.take_cursor()?;
-        let post_state_entry = self.take_post_state_cursor();
+        self.peek_database_cursor()?;
+        self.peek_post_state_cursor();
+        let database_entry = self.peeked_database_cursor.as_ref().unwrap();
+        let post_state_entry = self.peeked_post_state_cursor.as_ref().unwrap();
 
-        match Self::cmp(&db_entry, &post_state_entry) {
+        match Self::cmp(database_entry, post_state_entry) {
             Ordering::Less => {
-                self.untake_post_state_cursor(post_state_entry);
-                Ok(db_entry)
+                Ok(self.next_database_cursor()?)
             }
-            Ordering::Equal => Ok(post_state_entry),
+            Ordering::Equal => {
+                self.next_database_cursor()?;
+                Ok(self.next_post_state_cursor())
+            },
             Ordering::Greater => {
-                self.untake_cursor(db_entry);
-                Ok(post_state_entry)
+                Ok(self.next_post_state_cursor())
             }
         }
     }
