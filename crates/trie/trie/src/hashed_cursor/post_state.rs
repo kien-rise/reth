@@ -218,12 +218,16 @@ where
         let post_state_entry = self.peeked_post_state_cursor.as_ref().unwrap();
 
         match Self::cmp(database_entry, post_state_entry) {
-            Ordering::Less => Ok(self.next_database_cursor()?),
+            Ordering::Less => {
+                Ok(self.next_database_cursor()?)
+            }
             Ordering::Equal => {
                 self.next_database_cursor()?;
                 Ok(self.next_post_state_cursor())
+            },
+            Ordering::Greater => {
+                Ok(self.next_post_state_cursor())
             }
-            Ordering::Greater => Ok(self.next_post_state_cursor()),
         }
     }
 

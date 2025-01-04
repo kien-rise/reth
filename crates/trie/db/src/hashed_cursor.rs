@@ -127,11 +127,9 @@ where
     ) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
         if let Some((req, res)) = self.last_query {
             if req <= subkey && res.is_none_or(|res| subkey <= res.key) {
-                println!("127f7574 seek: HIT");
                 return Ok(res.map(|e| (e.key, e.value)));
             }
         }
-        println!("127f7574 seek: MISS");
         let entry = self.cursor.seek_by_key_subkey(self.hashed_address, subkey)?;
         self.last_query = Some((subkey, entry));
         Ok(entry.map(|e| (e.key, e.value)))
@@ -139,11 +137,9 @@ where
 
     fn next(&mut self) -> Result<Option<(B256, Self::Value)>, reth_db::DatabaseError> {
         let Some((_, Some(res))) = self.last_query else {
-            println!("127f7574 next: HIT-1");
             return Ok(None);
         };
         let Some(new_req) = increment(res.key) else {
-            println!("127f7574 next: HIT-2");
             return Ok(None);
         };
         let entry = self.cursor.next_dup_val()?;
