@@ -315,9 +315,11 @@ pub struct HashedPostStateStorageCursor<'a, C> {
     cleared_slots: Option<&'a B256HashSet>,
     /// Flag indicating whether database storage was wiped.
     storage_wiped: bool,
-    /// The last slot that has been returned by the cursor.
-    /// De facto, this is the cursor's position for the given account key.
-    last_slot: Option<B256>,
+    // /// The last slot that has been returned by the cursor.
+    // /// De facto, this is the cursor's position for the given account key.
+    // last_slot: Option<B256>,
+    db_peeked_entry: Option<Option<(B256, U256)>>,
+    post_state_peeked_entry: Option<Option<(B256, U256)>>,
 }
 
 impl<'a, C> HashedPostStateStorageCursor<'a, C>
@@ -330,7 +332,9 @@ where
             post_state_storage.map(|s| ForwardInMemoryCursor::new(&s.non_zero_valued_slots));
         let cleared_slots = post_state_storage.map(|s| &s.zero_valued_slots);
         let storage_wiped = post_state_storage.is_some_and(|s| s.wiped);
-        Self { cursor, post_state_cursor, cleared_slots, storage_wiped, last_slot: None }
+        Self { cursor, post_state_cursor, cleared_slots, storage_wiped,
+            // last_slot: None,
+            db_peeked_entry: None, post_state_peeked_entry: None }
     }
 
     /// Check if the slot was zeroed out in the post state.
@@ -339,16 +343,34 @@ where
         self.cleared_slots.is_some_and(|s| s.contains(slot))
     }
 
+    fn cmp<T>(lhs: &Option<(B256, T)>, rhs: &Option<(B256, T)>) -> Ordering {
+        match (lhs, rhs) {
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(_), None) => Ordering::Less,
+            (Some(lhs), Some(rhs)) => Ord::cmp(&lhs.0, &rhs.0),
+        }
+    }
+
     /// Find the storage entry in post state or database that's greater or equal to provided subkey.
     fn seek_inner(&mut self, subkey: B256) -> Result<Option<(B256, U256)>, DatabaseError> {
+        self.post_state_peeked_entry = None;
+
+
         // Attempt to find the account's storage in post state.
         let post_state_entry = self.post_state_cursor.as_mut().and_then(|c| c.seek(&subkey));
 
-        // If database storage was wiped or it's an exact match,
-        // return the storage slot from post state without looking up in the database.
-        if self.storage_wiped || post_state_entry.is_some_and(|entry| entry.0 == subkey) {
+
+        if self.storage_wiped {
             return Ok(post_state_entry)
         }
+        // If database storage was wiped or it's an exact match,
+        // return the storage slot from post state without looking up in the database.
+        // if self.storage_wiped || post_state_entry.is_some_and(|entry| entry.0 == subkey) {
+        //     return Ok(post_state_entry)
+        // }
+
+        self.db_peeked_entry = None;
 
         // It's not an exact match and storage was not wiped,
         // reposition to the first greater or equal account.
@@ -358,51 +380,94 @@ where
         }
 
         // Compare two entries and return the lowest.
-        Ok(Self::compare_entries(post_state_entry, db_entry))
+        match Self::cmp(&post_state_entry, &db_entry) {
+            Ordering::Less => {
+                self.db_peeked_entry = Some(db_entry);
+                Ok(post_state_entry)
+            },
+            Ordering::Equal => {
+                Ok(post_state_entry)
+            },
+            Ordering::Greater => {
+                self.post_state_peeked_entry = Some(post_state_entry);
+                Ok(db_entry)
+            },
+        }
     }
 
     /// Find the storage entry that is right after current cursor position.
-    fn next_inner(&mut self, last_slot: B256) -> Result<Option<(B256, U256)>, DatabaseError> {
-        // Attempt to find the account's storage in post state.
-        let post_state_entry =
-            self.post_state_cursor.as_mut().and_then(|c| c.first_after(&last_slot));
+    fn next_inner(&mut self) -> Result<Option<(B256, U256)>, DatabaseError> {
+        let post_state_entry = if let Some(entry) = self.post_state_peeked_entry.take() {
+            entry
+        } else {
+            self.post_state_cursor.as_mut().and_then(|c| c.next())
+        };
+
+        // // Attempt to find the account's storage in post state.
+        // let post_state_entry =
+        //     self.post_state_cursor.as_mut().and_then(|c| c.first_after(&last_slot));
 
         // Return post state entry immediately if database was wiped.
         if self.storage_wiped {
             return Ok(post_state_entry)
         }
 
-        // If post state was given precedence, move the cursor forward.
-        // If the entry was already returned or is zero-valued, move to the next.
-        let mut db_entry = self.cursor.seek(last_slot)?;
-        while db_entry
-            .as_ref()
-            .is_some_and(|entry| entry.0 == last_slot || self.is_slot_zero_valued(&entry.0))
-        {
-            db_entry = self.cursor.next()?;
-        }
+        let db_entry = if let Some(entry) = self.db_peeked_entry.take() {
+            entry
+        } else {
+            let mut db_entry = self.cursor.next()?;
+            while db_entry
+                .as_ref()
+                .is_some_and(|entry| self.is_slot_zero_valued(&entry.0))
+            {
+                db_entry = self.cursor.next()?;
+            }
+            db_entry
+        };
+
+        // // If post state was given precedence, move the cursor forward.
+        // // If the entry was already returned or is zero-valued, move to the next.
+        // let mut db_entry = self.cursor.seek(last_slot)?;
+        // while db_entry
+        //     .as_ref()
+        //     .is_some_and(|entry| entry.0 == last_slot || self.is_slot_zero_valued(&entry.0))
+        // {
+        //     db_entry = self.cursor.next()?;
+        // }
 
         // Compare two entries and return the lowest.
-        Ok(Self::compare_entries(post_state_entry, db_entry))
-    }
-
-    /// Return the storage entry with the lowest hashed storage key (hashed slot).
-    ///
-    /// Given the next post state and database entries, return the smallest of the two.
-    /// If the storage keys are the same, the post state entry is given precedence.
-    fn compare_entries(
-        post_state_item: Option<(B256, U256)>,
-        db_item: Option<(B256, U256)>,
-    ) -> Option<(B256, U256)> {
-        if let Some((post_state_entry, db_entry)) = post_state_item.zip(db_item) {
-            // If both are not empty, return the smallest of the two
-            // Post state is given precedence if keys are equal
-            Some(if post_state_entry.0 <= db_entry.0 { post_state_entry } else { db_entry })
-        } else {
-            // Return either non-empty entry
-            db_item.or(post_state_item)
+        match Self::cmp(&post_state_entry, &db_entry) {
+            Ordering::Less => {
+                self.db_peeked_entry = Some(db_entry);
+                Ok(post_state_entry)
+            },
+            Ordering::Equal => {
+                Ok(post_state_entry)
+            },
+            Ordering::Greater => {
+                self.post_state_peeked_entry = Some(post_state_entry);
+                Ok(db_entry)
+            },
         }
     }
+
+    // / Return the storage entry with the lowest hashed storage key (hashed slot).
+    // /
+    // / Given the next post state and database entries, return the smallest of the two.
+    // / If the storage keys are the same, the post state entry is given precedence.
+    // fn compare_entries(
+    //     post_state_item: Option<(B256, U256)>,
+    //     db_item: Option<(B256, U256)>,
+    // ) -> Option<(B256, U256)> {
+    //     if let Some((post_state_entry, db_entry)) = post_state_item.zip(db_item) {
+    //         // If both are not empty, return the smallest of the two
+    //         // Post state is given precedence if keys are equal
+    //         Some(if post_state_entry.0 <= db_entry.0 { post_state_entry } else { db_entry })
+    //     } else {
+    //         // Return either non-empty entry
+    //         db_item.or(post_state_item)
+    //     }
+    // }
 }
 
 impl<C> HashedCursor for HashedPostStateStorageCursor<'_, C>
@@ -414,22 +479,24 @@ where
     /// Seek the next account storage entry for a given hashed key pair.
     fn seek(&mut self, subkey: B256) -> Result<Option<(B256, Self::Value)>, DatabaseError> {
         let entry = self.seek_inner(subkey)?;
-        self.last_slot = entry.as_ref().map(|entry| entry.0);
+        // self.last_slot = entry.as_ref().map(|entry| entry.0);
         Ok(entry)
     }
 
     /// Return the next account storage entry for the current account key.
     fn next(&mut self) -> Result<Option<(B256, Self::Value)>, DatabaseError> {
-        let next = match self.last_slot {
-            Some(last_slot) => {
-                let entry = self.next_inner(last_slot)?;
-                self.last_slot = entry.as_ref().map(|entry| entry.0);
-                entry
-            }
-            // no previous entry was found
-            None => None,
-        };
-        Ok(next)
+        let entry = self.next_inner()?;
+        Ok(entry)
+        // let next = match self.last_slot {
+        //     Some(last_slot) => {
+        //         let entry = self.next_inner(last_slot)?;
+        //         self.last_slot = entry.as_ref().map(|entry| entry.0);
+        //         entry
+        //     }
+        //     // no previous entry was found
+        //     None => None,
+        // };
+        // Ok(next)
     }
 }
 
