@@ -24,20 +24,25 @@ use reth_trie_db::{
     DatabaseTrieWitness, StateCommitment,
 };
 
+use super::cache::{Cache, CacheTx};
+
 /// State provider over latest state that takes tx reference.
 ///
 /// Wraps a [`DBProvider`] to get access to database.
 #[derive(Debug)]
-pub struct LatestStateProviderRef<'b, Provider>(&'b Provider);
+pub struct LatestStateProviderRef<'b, Provider: DBProvider> {
+    provider: &'b Provider,
+    cache_tx: CacheTx<'b, Provider::Tx>,
+}
 
 impl<'b, Provider: DBProvider> LatestStateProviderRef<'b, Provider> {
     /// Create new state provider
-    pub const fn new(provider: &'b Provider) -> Self {
-        Self(provider)
+    pub fn new(provider: &'b Provider, cache: Option<&'b Cache>) -> Self {
+        Self { provider, cache_tx: CacheTx { tx: provider.tx_ref(), cache } }
     }
 
-    fn tx(&self) -> &Provider::Tx {
-        self.0.tx_ref()
+    fn tx(&self) -> &CacheTx<'b, Provider::Tx> {
+        &self.cache_tx
     }
 }
 
@@ -48,10 +53,12 @@ impl<Provider: DBProvider> AccountReader for LatestStateProviderRef<'_, Provider
     }
 }
 
-impl<Provider: BlockHashReader> BlockHashReader for LatestStateProviderRef<'_, Provider> {
+impl<Provider: BlockHashReader + DBProvider> BlockHashReader
+    for LatestStateProviderRef<'_, Provider>
+{
     /// Get block hash by number.
     fn block_hash(&self, number: u64) -> ProviderResult<Option<B256>> {
-        self.0.block_hash(number)
+        self.provider.block_hash(number)
     }
 
     fn canonical_hashes_range(
@@ -59,7 +66,7 @@ impl<Provider: BlockHashReader> BlockHashReader for LatestStateProviderRef<'_, P
         start: BlockNumber,
         end: BlockNumber,
     ) -> ProviderResult<Vec<B256>> {
-        self.0.canonical_hashes_range(start, end)
+        self.provider.canonical_hashes_range(start, end)
     }
 }
 
@@ -189,7 +196,7 @@ impl<Provider: DBProvider + BlockHashReader + StateCommitmentProvider> StateProv
     }
 }
 
-impl<Provider: StateCommitmentProvider> StateCommitmentProvider
+impl<Provider: StateCommitmentProvider + DBProvider> StateCommitmentProvider
     for LatestStateProviderRef<'_, Provider>
 {
     type StateCommitment = Provider::StateCommitment;
@@ -197,18 +204,20 @@ impl<Provider: StateCommitmentProvider> StateCommitmentProvider
 
 /// State provider for the latest state.
 #[derive(Debug)]
-pub struct LatestStateProvider<Provider>(Provider);
+pub struct LatestStateProvider<Provider> {
+    provider: Provider,
+    cache: Cache,
+}
 
 impl<Provider: DBProvider + StateCommitmentProvider> LatestStateProvider<Provider> {
     /// Create new state provider
-    pub const fn new(db: Provider) -> Self {
-        Self(db)
+    pub fn new(provider: Provider) -> Self {
+        Self { provider, cache: Cache::default() }
     }
 
     /// Returns a new provider that takes the `TX` as reference
-    #[inline(always)]
-    const fn as_ref(&self) -> LatestStateProviderRef<'_, Provider> {
-        LatestStateProviderRef::new(&self.0)
+    fn as_ref(&self) -> LatestStateProviderRef<'_, Provider> {
+        LatestStateProviderRef::new(&self.provider, Some(&self.cache))
     }
 }
 

@@ -72,9 +72,9 @@ pub trait Key: Encode + Decode + Ord + Clone + Serialize + for<'a> Deserialize<'
 impl<T> Key for T where T: Encode + Decode + Ord + Clone + Serialize + for<'a> Deserialize<'a> {}
 
 /// Generic trait that enforces the database value to implement [`Compress`] and [`Decompress`].
-pub trait Value: Compress + Decompress + Serialize {}
+pub trait Value: Compress + Decompress + Serialize + Clone {}
 
-impl<T> Value for T where T: Compress + Decompress + Serialize {}
+impl<T> Value for T where T: Compress + Decompress + Serialize + Clone {}
 
 /// Generic trait that a database table should follow.
 ///

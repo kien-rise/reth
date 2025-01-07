@@ -70,7 +70,7 @@ where
 
     // Execute the block to produce a block execution output
     let mut block_execution_output = EthExecutorProvider::ethereum(chain_spec)
-        .executor(StateProviderDatabase::new(LatestStateProviderRef::new(&provider)))
+        .executor(StateProviderDatabase::new(LatestStateProviderRef::new(&provider, None)))
         .execute(BlockExecutionInput { block, total_difficulty: U256::ZERO })?;
     block_execution_output.state.reverts.sort();
 
@@ -204,7 +204,7 @@ where
     let provider = provider_factory.provider()?;
 
     let executor = EthExecutorProvider::ethereum(chain_spec)
-        .batch_executor(StateProviderDatabase::new(LatestStateProviderRef::new(&provider)));
+        .batch_executor(StateProviderDatabase::new(LatestStateProviderRef::new(&provider, None)));
 
     let mut execution_outcome = executor.execute_and_verify_batch(vec![
         (&block1, U256::ZERO).into(),
