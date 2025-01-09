@@ -670,6 +670,10 @@ impl<T: Transaction, ChainSpec: EthChainSpec> StateRootProvider for MockEthProvi
         let state_root = self.state_roots.lock().pop().unwrap_or_default();
         Ok((state_root, Default::default()))
     }
+
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+        Ok(input)
+    }
 }
 
 impl<T: Transaction, ChainSpec: EthChainSpec> StorageRootProvider

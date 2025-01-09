@@ -387,6 +387,10 @@ impl<C: Send + Sync, N: NodePrimitives> StateRootProvider for NoopProvider<C, N>
     ) -> ProviderResult<(B256, TrieUpdates)> {
         Ok((B256::default(), TrieUpdates::default()))
     }
+
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+        Ok(input)
+    }
 }
 
 impl<C: Send + Sync, N: NodePrimitives> StorageRootProvider for NoopProvider<C, N> {

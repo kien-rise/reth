@@ -318,6 +318,11 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootP
         StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
             .map_err(|err| ProviderError::Database(err.into()))
     }
+
+    fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
+        input.prepend(self.revert_state()?);
+        Ok(input)
+    }
 }
 
 impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StorageRootProvider
