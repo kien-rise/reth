@@ -142,6 +142,10 @@ impl<N: NodePrimitives> StateRootProvider for MemoryOverlayStateProviderRef<'_, 
         input.prepend_cached(nodes, state);
         self.historical.get_resolved_trie_input(input)
     }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a reth_db::mdbx::tx::Tx<reth_db::mdbx::RO>> {
+        self.historical.as_ref().database_tx_ref()
+    }
 }
 
 impl<N: NodePrimitives> StorageRootProvider for MemoryOverlayStateProviderRef<'_, N> {

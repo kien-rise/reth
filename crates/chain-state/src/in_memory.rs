@@ -944,6 +944,7 @@ mod tests {
         map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue,
     };
     use rand::Rng;
+    use reth_db::mdbx::{tx::Tx, RO};
     use reth_errors::ProviderResult;
     use reth_primitives::{Account, Bytecode, EthPrimitives, Receipt};
     use reth_storage_api::{
@@ -1047,6 +1048,10 @@ mod tests {
 
         fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
             Ok(input)
+        }
+
+        fn database_tx_ref<'a>(&'a self) -> Option<&'a Tx<RO>> {
+            None
         }
     }
 

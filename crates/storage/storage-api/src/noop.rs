@@ -391,6 +391,10 @@ impl<C: Send + Sync, N: NodePrimitives> StateRootProvider for NoopProvider<C, N>
     fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
         Ok(input)
     }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a reth_db::mdbx::tx::Tx<reth_db::mdbx::RO>> {
+        None
+    }
 }
 
 impl<C: Send + Sync, N: NodePrimitives> StorageRootProvider for NoopProvider<C, N> {

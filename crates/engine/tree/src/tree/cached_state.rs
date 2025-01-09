@@ -2,6 +2,7 @@
 use alloy_primitives::{map::B256HashMap, Address, StorageKey, StorageValue, B256};
 use metrics::Gauge;
 use moka::sync::CacheBuilder;
+use reth_db::mdbx::{tx::Tx, RO};
 use reth_errors::ProviderResult;
 use reth_metrics::Metrics;
 use reth_primitives_traits::{Account, Bytecode};
@@ -163,6 +164,10 @@ impl<S: StateRootProvider> StateRootProvider for CachedStateProvider<S> {
 
     fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
         Ok(input)
+    }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a Tx<RO>> {
+        self.state_provider.database_tx_ref()
     }
 }
 

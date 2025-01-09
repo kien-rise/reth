@@ -4,6 +4,7 @@ use alloy_primitives::{
     map::{B256HashMap, HashMap},
     Address, BlockNumber, Bytes, StorageKey, B256, U256,
 };
+use reth_db::mdbx::{tx::Tx, RO};
 use reth_primitives::{Account, Bytecode};
 use reth_storage_api::{
     AccountReader, BlockHashReader, HashedPostStateProvider, StateProofProvider, StateProvider,
@@ -95,6 +96,10 @@ impl StateRootProvider for StateProviderTest {
     }
 
     fn get_resolved_trie_input(&self, _input: TrieInput) -> ProviderResult<TrieInput> {
+        unimplemented!("state root computation is not supported")
+    }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a Tx<RO>> {
         unimplemented!("state root computation is not supported")
     }
 }
