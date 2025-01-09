@@ -249,6 +249,10 @@ impl<S: StateRootProvider> StateRootProvider for CachedStateProvider<S> {
     ) -> ProviderResult<(B256, TrieUpdates)> {
         self.state_provider.state_root_with_updates(hashed_state)
     }
+
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+        Ok(input)
+    }
 }
 
 impl<S: StateProofProvider> StateProofProvider for CachedStateProvider<S> {

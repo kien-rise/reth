@@ -93,6 +93,10 @@ impl StateRootProvider for StateProviderTest {
     ) -> ProviderResult<(B256, TrieUpdates)> {
         unimplemented!("state root computation is not supported")
     }
+
+    fn get_resolved_trie_input(&self, _input: TrieInput) -> ProviderResult<TrieInput> {
+        unimplemented!("state root computation is not supported")
+    }
 }
 
 impl StorageRootProvider for StateProviderTest {
