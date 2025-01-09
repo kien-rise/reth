@@ -36,6 +36,9 @@ pub trait StateRootProvider: Send + Sync {
         &self,
         input: TrieInput,
     ) -> ProviderResult<(B256, TrieUpdates)>;
+
+    /// Gets the final `TrieInput` for the state root calculation.
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput>;
 }
 
 /// A type that can compute the storage root for a given account.

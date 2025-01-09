@@ -1044,6 +1044,10 @@ mod tests {
         ) -> ProviderResult<(B256, TrieUpdates)> {
             Ok((B256::random(), TrieUpdates::default()))
         }
+
+        fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+            Ok(input)
+        }
     }
 
     impl HashedPostStateProvider for MockStateProvider {
