@@ -14,7 +14,10 @@ use alloy_primitives::{
 };
 use parking_lot::Mutex;
 use reth_chainspec::{ChainInfo, ChainSpec};
-use reth_db::mock::{DatabaseMock, TxMock};
+use reth_db::{
+    mdbx::{tx::Tx, RO},
+    mock::{DatabaseMock, TxMock},
+};
 use reth_db_api::models::{AccountBeforeTx, StoredBlockBodyIndices};
 use reth_execution_types::ExecutionOutcome;
 use reth_node_types::NodeTypes;
@@ -620,6 +623,10 @@ impl StateRootProvider for MockEthProvider {
 
     fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
         Ok(input)
+    }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a Tx<RO>> {
+        None
     }
 }
 
