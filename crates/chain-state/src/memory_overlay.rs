@@ -133,6 +133,12 @@ impl<N: NodePrimitives> StateRootProvider for MemoryOverlayStateProviderRef<'_, 
         input.prepend_cached(nodes, state);
         self.historical.state_root_from_nodes_with_updates(input)
     }
+
+    fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
+        let MemoryOverlayTrieState { nodes, state } = self.trie_state().clone();
+        input.prepend_cached(nodes, state);
+        self.historical.get_resolved_trie_input(input)
+    }
 }
 
 impl<N: NodePrimitives> StorageRootProvider for MemoryOverlayStateProviderRef<'_, N> {
