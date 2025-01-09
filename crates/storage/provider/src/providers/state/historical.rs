@@ -6,7 +6,10 @@ use alloy_eips::merge::EPOCH_SLOTS;
 use alloy_primitives::{
     map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
 };
-use reth_db::{tables, BlockNumberList};
+use reth_db::{
+    mdbx::{tx::Tx, RO},
+    tables, BlockNumberList,
+};
 use reth_db_api::{
     cursor::{DbCursorRO, DbDupCursorRO},
     models::{storage_sharded_key::StorageShardedKey, ShardedKey},
@@ -325,6 +328,11 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootP
         input.prepend(self.revert_state()?);
         Ok(input)
     }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a Tx<RO>> {
+        let tx: &dyn std::any::Any = self.tx();
+        tx.downcast_ref::<Tx<RO>>()
+    }
 }
 
 impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StorageRootProvider
@@ -511,6 +519,40 @@ impl<Provider: StateCommitmentProvider> StateCommitmentProvider
 
 // Delegates all provider impls to [HistoricalStateProviderRef]
 delegate_provider_impls!(HistoricalStateProvider<Provider> where [Provider: DBProvider + BlockNumReader + BlockHashReader + StateCommitmentProvider]);
+
+impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootProvider
+    for HistoricalStateProvider<Provider>
+{
+    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
+        self.as_ref().state_root(hashed_state)
+    }
+    fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
+        self.as_ref().state_root_from_nodes(input)
+    }
+
+    fn state_root_with_updates(
+        &self,
+        hashed_state: HashedPostState,
+    ) -> ProviderResult<(B256, TrieUpdates)> {
+        self.as_ref().state_root_with_updates(hashed_state)
+    }
+
+    fn state_root_from_nodes_with_updates(
+        &self,
+        input: TrieInput,
+    ) -> ProviderResult<(B256, TrieUpdates)> {
+        self.as_ref().state_root_from_nodes_with_updates(input)
+    }
+
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+        self.as_ref().get_resolved_trie_input(input)
+    }
+
+    fn database_tx_ref<'a>(&'a self) -> Option<&'a Tx<RO>> {
+        let tx: &dyn std::any::Any = self.provider.tx_ref();
+        tx.downcast_ref::<Tx<RO>>()
+    }
+}
 
 /// Lowest blocks at which different parts of the state are available.
 /// They may be [Some] if pruning is enabled.
