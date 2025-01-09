@@ -89,6 +89,10 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
         StateRoot::overlay_root_from_nodes_with_updates(self.tx(), input)
             .map_err(|err| ProviderError::Database(err.into()))
     }
+
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+        Ok(input)
+    }
 }
 
 impl<Provider: DBProvider + StateCommitmentProvider> StorageRootProvider
