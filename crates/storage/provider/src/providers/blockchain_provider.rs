@@ -9,7 +9,7 @@ use crate::{
     StageCheckpointReader, StateProviderBox, StateProviderFactory, StateReader,
     StaticFileProviderFactory, TransactionVariant, TransactionsProvider, WithdrawalsProvider,
 };
-use alloy_consensus::{transaction::TransactionMeta, Header};
+use alloy_consensus::{transaction::TransactionMeta, BlockHeader, Header};
 use alloy_eips::{
     eip4895::{Withdrawal, Withdrawals},
     BlockHashOrNumber, BlockId, BlockNumHash, BlockNumberOrTag,
@@ -144,9 +144,28 @@ impl<N: ProviderNodeTypes> BlockchainProvider2<N> {
         &self,
         state: &BlockState<N::Primitives>,
     ) -> ProviderResult<MemoryOverlayStateProvider<N::Primitives>> {
-        let anchor_hash = state.anchor().hash;
-        let latest_historical = self.database.history_by_block_hash(anchor_hash)?;
-        Ok(state.state_provider(latest_historical))
+        // let anchor_hash = state.anchor().hash;
+        // let latest_historical = self.database.history_by_block_hash(anchor_hash)?;
+        // Ok(state.state_provider(latest_historical))
+
+        let mut in_memory = Vec::new();
+        let mut last_err = None;
+        for current_parent in state.chain() {
+            let executed_block = current_parent.block();
+            let hash = executed_block.block().parent_hash();
+            in_memory.push(executed_block);
+            match self.database.history_by_block_hash(hash) {
+                Ok(historical) => {
+                    // println!("ok | hash={:?} | in_memory.len()={:?}", hash, in_memory.len());
+                    return Ok(MemoryOverlayStateProvider::new(historical, in_memory))
+                },
+                Err(err) => {
+                    // println!("err | {:?}", err);
+                    last_err = Some(err);
+                }
+            }
+        }
+        Err(last_err.unwrap())
     }
 
     /// Return the last N blocks of state, recreating the [`ExecutionOutcome`].

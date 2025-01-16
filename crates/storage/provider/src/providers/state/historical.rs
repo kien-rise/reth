@@ -325,6 +325,7 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootP
     }
 
     fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
+        // panic!("HistoricalStateProviderRef");
         input.prepend(self.revert_state()?);
         Ok(input)
     }
