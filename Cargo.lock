@@ -9457,6 +9457,7 @@ dependencies = [
  "alloy-trie",
  "auto_impl",
  "codspeed-criterion-compat",
+ "dashmap",
  "itertools 0.13.0",
  "metrics",
  "proptest",
