@@ -326,7 +326,9 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootP
 
     fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
         // panic!("HistoricalStateProviderRef");
-        input.prepend(self.revert_state()?);
+        let to_revert = self.revert_state()?;
+        assert!(to_revert.accounts.is_empty() && to_revert.storages.is_empty());
+        input.prepend(to_revert);
         Ok(input)
     }
 

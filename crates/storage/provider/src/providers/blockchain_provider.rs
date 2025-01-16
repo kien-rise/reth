@@ -157,7 +157,8 @@ impl<N: ProviderNodeTypes> BlockchainProvider2<N> {
             match self.database.history_by_block_hash(hash) {
                 Ok(historical) => {
                     // println!("ok | hash={:?} | in_memory.len()={:?}", hash, in_memory.len());
-                    return Ok(MemoryOverlayStateProvider::new(historical, in_memory))
+                    // return Ok(MemoryOverlayStateProvider::new(historical, in_memory))
+                    return Ok(state.state_provider(historical))
                 },
                 Err(err) => {
                     // println!("err | {:?}", err);
