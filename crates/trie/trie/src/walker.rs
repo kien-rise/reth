@@ -9,6 +9,31 @@ use reth_storage_errors::db::DatabaseError;
 #[cfg(feature = "metrics")]
 use crate::metrics::WalkerMetrics;
 
+static LOGS: std::sync::OnceLock<(
+    dashmap::DashMap<String, usize>,
+    std::sync::atomic::AtomicUsize,
+)> = std::sync::OnceLock::new();
+
+fn log(text: &str) {
+    let (logs, count) = LOGS.get_or_init(|| Default::default());
+    let mut entry = logs.entry(String::from(text)).or_default();
+    *entry.value_mut() += 1;
+    drop(entry);
+    let count = count.fetch_add(1, std::sync::atomic::Ordering::Acquire) + 1;
+    if count.is_power_of_two() {
+        println!("count = {}", count);
+        for entry in logs.iter() {
+            println!("{:10} {}", entry.value(), entry.key());
+        }
+    }
+}
+
+macro_rules! log {
+    ($($arg:tt)*) => {
+        log(&format!($($arg)*));
+    };
+}
+
 /// `TrieWalker` is a structure that enables traversal of a Merkle trie.
 /// It allows moving through the trie in a depth-first manner, skipping certain branches
 /// if they have not changed.
@@ -113,10 +138,12 @@ impl<C> TrieWalker<C> {
 
     /// Updates the skip node flag based on the walker's current state.
     fn update_skip_node(&mut self) {
-        self.can_skip_current_node = self
-            .stack
-            .last()
-            .is_some_and(|node| !self.changes.contains(node.full_key()) && node.hash_flag());
+        self.can_skip_current_node = self.stack.last().is_some_and(|node| {
+            let aa = !self.changes.contains(node.full_key());
+            let bb = node.hash_flag();
+            log!("update_skip_node | aa={:?} | bb={:?}", aa, bb);
+            aa && bb
+        });
     }
 }
 
