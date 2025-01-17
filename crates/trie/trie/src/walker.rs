@@ -54,7 +54,10 @@ pub struct TrieWalker<C> {
     #[cfg(feature = "metrics")]
     /// Walker metrics.
     metrics: WalkerMetrics,
+    /// Should log more
     should_log: bool,
+    /// Verbose
+    verbose: bool,
 }
 
 impl<C> TrieWalker<C> {
@@ -69,6 +72,7 @@ impl<C> TrieWalker<C> {
             #[cfg(feature = "metrics")]
             metrics: WalkerMetrics::default(),
             should_log: false,
+            verbose: false,
         };
         this.update_skip_node();
         this
@@ -170,6 +174,7 @@ impl<C: TrieCursor> TrieWalker<C> {
             #[cfg(feature = "metrics")]
             metrics: WalkerMetrics::default(),
             should_log: false,
+            verbose: false,
         };
 
         // Set up the root node of the trie in the stack, if it exists.
@@ -194,6 +199,11 @@ impl<C: TrieCursor> TrieWalker<C> {
             #[cfg(feature = "metrics")]
             metrics: WalkerMetrics::default(),
             should_log: true,
+            verbose: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .subsec_nanos() <
+                10000000,
         };
 
         // Set up the root node of the trie in the stack, if it exists.
@@ -213,6 +223,11 @@ impl<C: TrieCursor> TrieWalker<C> {
     ///
     /// * `Result<(), Error>` - Unit on success or an error.
     pub fn advance(&mut self) -> Result<(), DatabaseError> {
+        let before_advance = self.key().cloned();
+        let can_skip_current_node = self.can_skip_current_node;
+        let children_are_in_trie = self.children_are_in_trie();
+        let last_nibble = self.stack.last().map(|last| last.nibble());
+
         if let Some(last) = self.stack.last() {
             if !self.can_skip_current_node && self.children_are_in_trie() {
                 // If we can't skip the current node and the children are in the trie,
@@ -228,6 +243,18 @@ impl<C: TrieCursor> TrieWalker<C> {
 
             // Update the skip node flag based on the new position in the trie.
             self.update_skip_node();
+        }
+
+        if self.verbose {
+            println!(
+                "before | {:?} | {:?} | {:?} | {:?} | after | {:?} | {:?}",
+                before_advance,
+                can_skip_current_node,
+                children_are_in_trie,
+                last_nibble,
+                self.key(),
+                self.can_skip_current_node
+            );
         }
 
         Ok(())
