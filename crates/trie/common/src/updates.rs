@@ -102,14 +102,18 @@ impl TrieUpdates {
 
     /// Converts trie updates into [`TrieUpdatesSorted`].
     pub fn into_sorted(self) -> TrieUpdatesSorted {
-        let mut account_nodes = Vec::from_iter(self.account_nodes);
-        account_nodes.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        let mut changed_nodes: Vec<_> = Iterator::chain(
+            self.account_nodes.into_iter().map(|(k, v)| (k, Some(v))),
+            self.removed_nodes.into_iter().map(|k| (k, None)),
+        )
+        .collect();
+        changed_nodes.sort_unstable_by(|a, b| a.0.cmp(&b.0));
         let storage_tries = self
             .storage_tries
             .into_iter()
             .map(|(hashed_address, updates)| (hashed_address, updates.into_sorted()))
             .collect();
-        TrieUpdatesSorted { removed_nodes: self.removed_nodes, account_nodes, storage_tries }
+        TrieUpdatesSorted { changed_nodes, storage_tries }
     }
 }
 
@@ -350,24 +354,17 @@ mod serde_nibbles_map {
 /// Sorted trie updates used for lookups and insertions.
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
 pub struct TrieUpdatesSorted {
-    /// Sorted collection of updated state nodes with corresponding paths.
-    pub account_nodes: Vec<(Nibbles, BranchNodeCompact)>,
-    /// The set of removed state node keys.
-    pub removed_nodes: HashSet<Nibbles>,
+    /// Sorted collection of changed state nodes with corresponding paths.
+    pub changed_nodes: Vec<(Nibbles, Option<BranchNodeCompact>)>,
     /// Storage tries storage stored by hashed address of the account
     /// the trie belongs to.
     pub storage_tries: B256HashMap<StorageTrieUpdatesSorted>,
 }
 
 impl TrieUpdatesSorted {
-    /// Returns reference to updated account nodes.
-    pub fn account_nodes_ref(&self) -> &[(Nibbles, BranchNodeCompact)] {
-        &self.account_nodes
-    }
-
-    /// Returns reference to removed account nodes.
-    pub const fn removed_nodes_ref(&self) -> &HashSet<Nibbles> {
-        &self.removed_nodes
+    /// Returns reference to changed account nodes.
+    pub fn changed_nodes_ref(&self) -> &[(Nibbles, Option<BranchNodeCompact>)] {
+        &self.changed_nodes
     }
 
     /// Returns reference to updated storage tries.
