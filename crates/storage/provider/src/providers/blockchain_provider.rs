@@ -643,10 +643,10 @@ impl<N: ProviderNodeTypes> StateProviderFactory for BlockchainProvider2<N> {
 }
 
 impl<N: NodeTypesWithDB> HashedPostStateProvider for BlockchainProvider2<N> {
-    fn hashed_post_state(&self, bundle_state: &BundleState) -> HashedPostState {
-        HashedPostState::from_bundle_state::<<N::StateCommitment as StateCommitment>::KeyHasher>(
+    fn hashed_post_state(&self, bundle_state: &BundleState) -> Arc<HashedPostState> {
+        Arc::new(HashedPostState::from_bundle_state::<<N::StateCommitment as StateCommitment>::KeyHasher>(
             bundle_state.state(),
-        )
+        ))
     }
 }
 

@@ -29,6 +29,7 @@ use reth_revm::{
     DatabaseCommit,
 };
 use reth_rpc_types_compat::engine::payload::block_to_payload;
+use reth_trie::TrieInput;
 use revm_primitives::{EVMError, EnvWithHandlerCfg};
 use std::{
     collections::VecDeque,
@@ -422,7 +423,7 @@ where
             gas_used: cumulative_gas_used,
             blob_gas_used,
             excess_blob_gas,
-            state_root: state_provider.state_root(hashed_state)?,
+            state_root: state_provider.state_root_from_nodes(TrieInput::from_state(hashed_state))?,
             requests_hash: None, // TODO(prague)
         },
         body: BlockBody {

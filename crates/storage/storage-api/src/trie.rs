@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_primitives::{map::B256HashMap, Address, Bytes, B256};
 use reth_db::mdbx::{tx::Tx, RO};
 use reth_storage_errors::provider::ProviderResult;
@@ -9,26 +11,10 @@ use reth_trie::{
 /// A type that can compute the state root of a given post state.
 #[auto_impl::auto_impl(&, Box, Arc)]
 pub trait StateRootProvider: Send + Sync {
-    /// Returns the state root of the `BundleState` on top of the current state.
-    ///
-    /// # Note
-    ///
-    /// It is recommended to provide a different implementation from
-    /// `state_root_with_updates` since it affects the memory usage during state root
-    /// computation.
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256>;
-
     /// Returns the state root of the `HashedPostState` on top of the current state but re-uses the
     /// intermediate nodes to speed up the computation. It's up to the caller to construct the
     /// prefix sets and inform the provider of the trie paths that have changes.
     fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256>;
-
-    /// Returns the state root of the `HashedPostState` on top of the current state with trie
-    /// updates to be committed to the database.
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)>;
 
     /// Returns state root and trie updates.
     /// See [`StateRootProvider::state_root_from_nodes`] for more info.
@@ -94,7 +80,7 @@ pub trait StateProofProvider: Send + Sync {
     fn witness(
         &self,
         input: TrieInput,
-        target: HashedPostState,
+        target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>>;
 }
 

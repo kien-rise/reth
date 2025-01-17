@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     AccountReader, BlockHashReader, ExecutionDataProvider, StateProvider, StateRootProvider,
 };
@@ -82,25 +84,8 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> AccountReader for BundleStat
 impl<SP: StateProvider, EDP: ExecutionDataProvider> StateRootProvider
     for BundleStateProvider<SP, EDP>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        let mut state = self.hashed_post_state(bundle_state);
-        state.extend(hashed_state);
-        self.state_provider.state_root(state)
-    }
-
     fn state_root_from_nodes(&self, _input: TrieInput) -> ProviderResult<B256> {
         unimplemented!()
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        let mut state = self.hashed_post_state(bundle_state);
-        state.extend(hashed_state);
-        self.state_provider.state_root_with_updates(state)
     }
 
     fn state_root_from_nodes_with_updates(
@@ -187,7 +172,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
     fn witness(
         &self,
         mut input: TrieInput,
-        target: HashedPostState,
+        target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
         input.prepend(self.hashed_post_state(bundle_state));
@@ -198,7 +183,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
 impl<SP: StateProvider, EDP: ExecutionDataProvider> HashedPostStateProvider
     for BundleStateProvider<SP, EDP>
 {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
+    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> Arc<HashedPostState> {
         self.state_provider.hashed_post_state(bundle_state)
     }
 }

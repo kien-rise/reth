@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     providers::state::macros::delegate_provider_impls, AccountReader, BlockHashReader,
     HashedPostStateProvider, StateProvider, StateRootProvider,
@@ -69,21 +71,8 @@ impl<Provider: BlockHashReader> BlockHashReader for LatestStateProviderRef<'_, P
 impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
     for LatestStateProviderRef<'_, Provider>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        StateRoot::overlay_root(self.tx(), hashed_state)
-            .map_err(|err| ProviderError::Database(err.into()))
-    }
-
     fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
         StateRoot::overlay_root_from_nodes(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        StateRoot::overlay_root_with_updates(self.tx(), hashed_state)
             .map_err(|err| ProviderError::Database(err.into()))
     }
 
@@ -161,7 +150,7 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateProofProvider
     fn witness(
         &self,
         input: TrieInput,
-        target: HashedPostState,
+        target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         TrieWitness::overlay_witness(self.tx(), input, target).map_err(ProviderError::from)
     }
@@ -170,10 +159,10 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateProofProvider
 impl<Provider: DBProvider + StateCommitmentProvider> HashedPostStateProvider
     for LatestStateProviderRef<'_, Provider>
 {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
-        HashedPostState::from_bundle_state::<
+    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> Arc<HashedPostState> {
+        Arc::new(HashedPostState::from_bundle_state::<
             <Provider::StateCommitment as StateCommitment>::KeyHasher,
-        >(bundle_state.state())
+        >(bundle_state.state()))
     }
 }
 
@@ -234,18 +223,8 @@ delegate_provider_impls!(LatestStateProvider<Provider> where [Provider: DBProvid
 impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
     for LatestStateProvider<Provider>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        self.as_ref().state_root(hashed_state)
-    }
     fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
         self.as_ref().state_root_from_nodes(input)
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        self.as_ref().state_root_with_updates(hashed_state)
     }
 
     fn state_root_from_nodes_with_updates(

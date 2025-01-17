@@ -2,6 +2,8 @@
 //! <https://github.com/rust-lang/rust/issues/100013> in default implementation of
 //! `reth_rpc_eth_api::helpers::Call`.
 
+use std::sync::Arc;
+
 use alloy_primitives::{Address, B256, U256};
 use reth_errors::ProviderResult;
 use reth_revm::{database::StateProviderDatabase, db::CacheDB, DatabaseRef};
@@ -18,25 +20,11 @@ pub type StateCacheDb<'a> = CacheDB<StateProviderDatabase<StateProviderTraitObjW
 pub struct StateProviderTraitObjWrapper<'a>(pub &'a dyn StateProvider);
 
 impl reth_storage_api::StateRootProvider for StateProviderTraitObjWrapper<'_> {
-    fn state_root(
-        &self,
-        hashed_state: reth_trie::HashedPostState,
-    ) -> reth_errors::ProviderResult<B256> {
-        self.0.state_root(hashed_state)
-    }
-
     fn state_root_from_nodes(
         &self,
         input: reth_trie::TrieInput,
     ) -> reth_errors::ProviderResult<B256> {
         self.0.state_root_from_nodes(input)
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: reth_trie::HashedPostState,
-    ) -> reth_errors::ProviderResult<(B256, reth_trie::updates::TrieUpdates)> {
-        self.0.state_root_with_updates(hashed_state)
     }
 
     fn state_root_from_nodes_with_updates(
@@ -107,7 +95,7 @@ impl reth_storage_api::StateProofProvider for StateProviderTraitObjWrapper<'_> {
     fn witness(
         &self,
         input: reth_trie::TrieInput,
-        target: reth_trie::HashedPostState,
+        target: Arc<reth_trie::HashedPostState>,
     ) -> reth_errors::ProviderResult<alloy_primitives::map::B256HashMap<alloy_primitives::Bytes>>
     {
         self.0.witness(input, target)
@@ -151,7 +139,7 @@ impl HashedPostStateProvider for StateProviderTraitObjWrapper<'_> {
     fn hashed_post_state(
         &self,
         bundle_state: &revm::db::BundleState,
-    ) -> reth_trie::HashedPostState {
+    ) -> std::sync::Arc<reth_trie::HashedPostState> {
         self.0.hashed_post_state(bundle_state)
     }
 }

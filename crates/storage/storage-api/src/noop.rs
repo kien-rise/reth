@@ -368,19 +368,8 @@ impl<C: Send + Sync, N: NodePrimitives> ChangeSetReader for NoopProvider<C, N> {
 }
 
 impl<C: Send + Sync, N: NodePrimitives> StateRootProvider for NoopProvider<C, N> {
-    fn state_root(&self, _state: HashedPostState) -> ProviderResult<B256> {
-        Ok(B256::default())
-    }
-
     fn state_root_from_nodes(&self, _input: TrieInput) -> ProviderResult<B256> {
         Ok(B256::default())
-    }
-
-    fn state_root_with_updates(
-        &self,
-        _state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        Ok((B256::default(), TrieUpdates::default()))
     }
 
     fn state_root_from_nodes_with_updates(
@@ -448,15 +437,15 @@ impl<C: Send + Sync, N: NodePrimitives> StateProofProvider for NoopProvider<C, N
     fn witness(
         &self,
         _input: TrieInput,
-        _target: HashedPostState,
+        _target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         Ok(HashMap::default())
     }
 }
 
 impl<C: Send + Sync, N: NodePrimitives> HashedPostStateProvider for NoopProvider<C, N> {
-    fn hashed_post_state(&self, _bundle_state: &revm::db::BundleState) -> HashedPostState {
-        HashedPostState::default()
+    fn hashed_post_state(&self, _bundle_state: &revm::db::BundleState) -> Arc<HashedPostState> {
+        Arc::default()
     }
 }
 

@@ -597,20 +597,8 @@ impl StageCheckpointReader for MockEthProvider {
 }
 
 impl StateRootProvider for MockEthProvider {
-    fn state_root(&self, _state: HashedPostState) -> ProviderResult<B256> {
-        Ok(self.state_roots.lock().pop().unwrap_or_default())
-    }
-
     fn state_root_from_nodes(&self, _input: TrieInput) -> ProviderResult<B256> {
         Ok(self.state_roots.lock().pop().unwrap_or_default())
-    }
-
-    fn state_root_with_updates(
-        &self,
-        _state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        let state_root = self.state_roots.lock().pop().unwrap_or_default();
-        Ok((state_root, Default::default()))
     }
 
     fn state_root_from_nodes_with_updates(
@@ -679,15 +667,15 @@ impl StateProofProvider for MockEthProvider {
     fn witness(
         &self,
         _input: TrieInput,
-        _target: HashedPostState,
+        _target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         Ok(HashMap::default())
     }
 }
 
 impl HashedPostStateProvider for MockEthProvider {
-    fn hashed_post_state(&self, _state: &revm::db::BundleState) -> HashedPostState {
-        HashedPostState::default()
+    fn hashed_post_state(&self, _state: &revm::db::BundleState) -> Arc<HashedPostState> {
+        Arc::default()
     }
 }
 

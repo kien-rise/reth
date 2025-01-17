@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
 use crate::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
 use alloy_primitives::{map::B256HashMap, Bytes};
 use reth_db_api::transaction::DbTx;
 use reth_execution_errors::TrieWitnessError;
 use reth_trie::{
-    hashed_cursor::HashedPostStateCursorFactory, trie_cursor::InMemoryTrieCursorFactory,
-    witness::TrieWitness, HashedPostState, TrieInput,
+    hashed_cursor::HashedPostStateCursorFactory, trie_cursor::InMemoryTrieCursorFactory, updates::TrieUpdatesSorted, witness::TrieWitness, HashedPostState, HashedPostStateSorted, TrieInput
 };
 
 /// Extends [`TrieWitness`] with operations specific for working with a database transaction.
@@ -16,7 +17,7 @@ pub trait DatabaseTrieWitness<'a, TX> {
     fn overlay_witness(
         tx: &'a TX,
         input: TrieInput,
-        target: HashedPostState,
+        target: Arc<HashedPostState>,
     ) -> Result<B256HashMap<Bytes>, TrieWitnessError>;
 }
 
@@ -30,10 +31,10 @@ impl<'a, TX: DbTx> DatabaseTrieWitness<'a, TX>
     fn overlay_witness(
         tx: &'a TX,
         input: TrieInput,
-        target: HashedPostState,
+        target: Arc<HashedPostState>,
     ) -> Result<B256HashMap<Bytes>, TrieWitnessError> {
-        let nodes_sorted = input.nodes.into_sorted();
-        let state_sorted = input.state.into_sorted();
+        let nodes_sorted = TrieUpdatesSorted::from_overlay(&input.nodes);
+        let state_sorted = HashedPostStateSorted::from_overlay(&input.state);
         Self::from_tx(tx)
             .with_trie_cursor_factory(InMemoryTrieCursorFactory::new(
                 DatabaseTrieCursorFactory::new(tx),

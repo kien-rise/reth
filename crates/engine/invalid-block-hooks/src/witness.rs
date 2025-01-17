@@ -18,9 +18,9 @@ use reth_revm::{
 };
 use reth_rpc_api::DebugApiClient;
 use reth_tracing::tracing::warn;
-use reth_trie::{updates::TrieUpdates, HashedStorage};
+use reth_trie::{updates::TrieUpdates, HashedStorage, TrieInput};
 use serde::Serialize;
-use std::{collections::HashMap, fmt::Debug, fs::File, io::Write, path::PathBuf};
+use std::{collections::HashMap, fmt::Debug, fs::File, io::Write, path::PathBuf, sync::Arc};
 
 /// Generates a witness for the given block and saves it to a file.
 #[derive(Debug)]
@@ -134,7 +134,7 @@ where
         //
         // Note: We grab *all* accounts in the cache here, as the `BundleState` prunes
         // referenced accounts + storage slots.
-        let mut hashed_state = db.database.hashed_post_state(&bundle_state);
+        let mut hashed_state = Arc::unwrap_or_clone(db.database.hashed_post_state(&bundle_state));
         for (address, account) in db.cache.accounts {
             let hashed_address = keccak256(address);
             hashed_state
@@ -162,6 +162,7 @@ where
         // Generate an execution witness for the aggregated state of accessed accounts.
         // Destruct the cache database to retrieve the state provider.
         let state_provider = db.database.into_inner();
+        let hashed_state = Arc::new(hashed_state);
         let state = state_provider.witness(Default::default(), hashed_state.clone())?;
 
         // Write the witness to the output directory.
@@ -241,7 +242,7 @@ where
         // Calculate the state root and trie updates after re-execution. They should match
         // the original ones.
         let (re_executed_root, trie_output) =
-            state_provider.state_root_with_updates(hashed_state)?;
+            state_provider.state_root_from_nodes_with_updates(TrieInput::from_state(hashed_state))?;
         if let Some((original_updates, original_root)) = trie_updates {
             if re_executed_root != original_root {
                 let filename = format!("{}_{}.state_root.diff", block.number(), block.hash());

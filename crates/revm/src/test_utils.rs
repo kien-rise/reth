@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloc::vec::Vec;
 use alloy_primitives::{
     keccak256,
@@ -73,18 +75,7 @@ impl BlockHashReader for StateProviderTest {
 }
 
 impl StateRootProvider for StateProviderTest {
-    fn state_root(&self, _hashed_state: HashedPostState) -> ProviderResult<B256> {
-        unimplemented!("state root computation is not supported")
-    }
-
     fn state_root_from_nodes(&self, _input: TrieInput) -> ProviderResult<B256> {
-        unimplemented!("state root computation is not supported")
-    }
-
-    fn state_root_with_updates(
-        &self,
-        _hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
         unimplemented!("state root computation is not supported")
     }
 
@@ -153,15 +144,15 @@ impl StateProofProvider for StateProviderTest {
     fn witness(
         &self,
         _input: TrieInput,
-        _target: HashedPostState,
+        _target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         unimplemented!("witness generation is not supported")
     }
 }
 
 impl HashedPostStateProvider for StateProviderTest {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
-        HashedPostState::from_bundle_state::<KeccakKeyHasher>(bundle_state.state())
+    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> Arc<HashedPostState> {
+        Arc::new(HashedPostState::from_bundle_state::<KeccakKeyHasher>(bundle_state.state()))
     }
 }
 

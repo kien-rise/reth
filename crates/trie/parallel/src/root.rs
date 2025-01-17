@@ -11,12 +11,7 @@ use reth_provider::{
     StateCommitmentProvider,
 };
 use reth_trie::{
-    hashed_cursor::{HashedCursorFactory, HashedPostStateCursorFactory},
-    node_iter::{TrieElement, TrieNodeIter},
-    trie_cursor::{InMemoryTrieCursorFactory, TrieCursorFactory},
-    updates::TrieUpdates,
-    walker::TrieWalker,
-    HashBuilder, Nibbles, StorageRoot, TrieInput, TRIE_ACCOUNT_RLP_MAX_SIZE,
+    hashed_cursor::{HashedCursorFactory, HashedPostStateCursorFactory}, node_iter::{TrieElement, TrieNodeIter}, trie_cursor::{InMemoryTrieCursorFactory, TrieCursorFactory}, updates::{TrieUpdates, TrieUpdatesSorted}, walker::TrieWalker, HashBuilder, HashedPostStateSorted, Nibbles, StorageRoot, TrieInput, TRIE_ACCOUNT_RLP_MAX_SIZE
 };
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseTrieCursorFactory};
 use std::{collections::HashMap, sync::Arc};
@@ -83,8 +78,8 @@ where
         retain_updates: bool,
     ) -> Result<(B256, TrieUpdates), ParallelStateRootError> {
         let mut tracker = ParallelTrieTracker::default();
-        let trie_nodes_sorted = Arc::new(self.input.nodes.into_sorted());
-        let hashed_state_sorted = Arc::new(self.input.state.into_sorted());
+        let trie_nodes_sorted = Arc::new(TrieUpdatesSorted::from_overlay(&self.input.nodes));
+        let hashed_state_sorted = Arc::new(HashedPostStateSorted::from_overlay(&self.input.state));
         let prefix_sets = self.input.prefix_sets.freeze();
         let storage_root_targets = StorageRootTargets::new(
             prefix_sets.account_prefix_set.iter().map(|nibbles| B256::from_slice(&nibbles.pack())),

@@ -90,8 +90,8 @@ impl<Factory> StateRootConfig<Factory> {
     pub fn new_from_input(consistent_view: ConsistentDbView<Factory>, input: TrieInput) -> Self {
         Self {
             consistent_view,
-            nodes_sorted: Arc::new(input.nodes.into_sorted()),
-            state_sorted: Arc::new(input.state.into_sorted()),
+            nodes_sorted: Arc::new(TrieUpdatesSorted::from_overlay(&input.nodes)),
+            state_sorted: Arc::new(HashedPostStateSorted::from_overlay(&input.state)),
             prefix_sets: Arc::new(input.prefix_sets),
         }
     }

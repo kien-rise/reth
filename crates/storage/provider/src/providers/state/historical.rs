@@ -32,7 +32,7 @@ use reth_trie_db::{
     DatabaseHashedPostState, DatabaseHashedStorage, DatabaseProof, DatabaseStateRoot,
     DatabaseStorageProof, DatabaseStorageRoot, DatabaseTrieWitness, StateCommitment,
 };
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 /// State provider for a given block number which takes a tx reference.
 ///
@@ -123,7 +123,7 @@ impl<'b, Provider: DBProvider + BlockNumReader + StateCommitmentProvider>
     }
 
     /// Retrieve revert hashed state for this history provider.
-    fn revert_state(&self) -> ProviderResult<HashedPostState> {
+    fn revert_state(&self) -> ProviderResult<Arc<HashedPostState>> {
         if !self.lowest_available_blocks.is_account_history_available(self.block_number) ||
             !self.lowest_available_blocks.is_storage_history_available(self.block_number)
         {
@@ -138,9 +138,9 @@ impl<'b, Provider: DBProvider + BlockNumReader + StateCommitmentProvider>
             );
         }
 
-        Ok(HashedPostState::from_reverts::<
+        Ok(Arc::new(HashedPostState::from_reverts::<
             <Provider::StateCommitment as StateCommitment>::KeyHasher,
-        >(self.tx(), self.block_number)?)
+        >(self.tx(), self.block_number)?))
     }
 
     /// Retrieve revert hashed storage for this history provider and target address.
@@ -292,26 +292,9 @@ impl<Provider: DBProvider + BlockNumReader + BlockHashReader> BlockHashReader
 impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootProvider
     for HistoricalStateProviderRef<'_, Provider>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        let mut revert_state = self.revert_state()?;
-        revert_state.extend(hashed_state);
-        StateRoot::overlay_root(self.tx(), revert_state)
-            .map_err(|err| ProviderError::Database(err.into()))
-    }
-
     fn state_root_from_nodes(&self, mut input: TrieInput) -> ProviderResult<B256> {
         input.prepend(self.revert_state()?);
         StateRoot::overlay_root_from_nodes(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        let mut revert_state = self.revert_state()?;
-        revert_state.extend(hashed_state);
-        StateRoot::overlay_root_with_updates(self.tx(), revert_state)
             .map_err(|err| ProviderError::Database(err.into()))
     }
 
@@ -403,7 +386,7 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateProof
     fn witness(
         &self,
         mut input: TrieInput,
-        target: HashedPostState,
+        target: Arc<HashedPostState>,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         input.prepend(self.revert_state()?);
         TrieWitness::overlay_witness(self.tx(), input, target).map_err(ProviderError::from)
@@ -413,10 +396,10 @@ impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateProof
 impl<Provider: StateCommitmentProvider> HashedPostStateProvider
     for HistoricalStateProviderRef<'_, Provider>
 {
-    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> HashedPostState {
-        HashedPostState::from_bundle_state::<
+    fn hashed_post_state(&self, bundle_state: &revm::db::BundleState) -> Arc<HashedPostState> {
+        Arc::new(HashedPostState::from_bundle_state::<
             <Provider::StateCommitment as StateCommitment>::KeyHasher,
-        >(bundle_state.state())
+        >(bundle_state.state()))
     }
 }
 
@@ -526,18 +509,8 @@ delegate_provider_impls!(HistoricalStateProvider<Provider> where [Provider: DBPr
 impl<Provider: DBProvider + BlockNumReader + StateCommitmentProvider> StateRootProvider
     for HistoricalStateProvider<Provider>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        self.as_ref().state_root(hashed_state)
-    }
     fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
         self.as_ref().state_root_from_nodes(input)
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        self.as_ref().state_root_with_updates(hashed_state)
     }
 
     fn state_root_from_nodes_with_updates(

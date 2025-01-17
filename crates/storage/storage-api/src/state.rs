@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{
     AccountReader, BlockHashReader, BlockIdReader, StateProofProvider, StateRootProvider,
     StorageRootProvider,
@@ -95,7 +97,7 @@ pub trait StateCommitmentProvider: Send + Sync {
 #[auto_impl(&, Arc, Box)]
 pub trait HashedPostStateProvider: Send + Sync {
     /// Returns the `HashedPostState` of the provided [`BundleState`].
-    fn hashed_post_state(&self, bundle_state: &BundleState) -> HashedPostState;
+    fn hashed_post_state(&self, bundle_state: &BundleState) -> Arc<HashedPostState>;
 }
 
 /// Trait implemented for database providers that can be converted into a historical state provider.

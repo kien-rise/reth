@@ -3,11 +3,7 @@ use alloy_primitives::{keccak256, map::HashMap, Address, B256};
 use reth_db_api::transaction::DbTx;
 use reth_execution_errors::StateProofError;
 use reth_trie::{
-    hashed_cursor::HashedPostStateCursorFactory,
-    proof::{Proof, StorageProof},
-    trie_cursor::InMemoryTrieCursorFactory,
-    AccountProof, HashedPostStateSorted, HashedStorage, MultiProof, MultiProofTargets,
-    StorageMultiProof, TrieInput,
+    hashed_cursor::HashedPostStateCursorFactory, proof::{Proof, StorageProof}, trie_cursor::InMemoryTrieCursorFactory, updates::TrieUpdatesSorted, AccountProof, HashedPostStateSorted, HashedStorage, MultiProof, MultiProofTargets, StorageMultiProof, TrieInput
 };
 
 /// Extends [`Proof`] with operations specific for working with a database transaction.
@@ -45,8 +41,8 @@ impl<'a, TX: DbTx> DatabaseProof<'a, TX>
         address: Address,
         slots: &[B256],
     ) -> Result<AccountProof, StateProofError> {
-        let nodes_sorted = input.nodes.into_sorted();
-        let state_sorted = input.state.into_sorted();
+        let nodes_sorted = TrieUpdatesSorted::from_overlay(&input.nodes);
+        let state_sorted = HashedPostStateSorted::from_overlay(&input.state);
         Self::from_tx(tx)
             .with_trie_cursor_factory(InMemoryTrieCursorFactory::new(
                 DatabaseTrieCursorFactory::new(tx),
@@ -65,8 +61,8 @@ impl<'a, TX: DbTx> DatabaseProof<'a, TX>
         input: TrieInput,
         targets: MultiProofTargets,
     ) -> Result<MultiProof, StateProofError> {
-        let nodes_sorted = input.nodes.into_sorted();
-        let state_sorted = input.state.into_sorted();
+        let nodes_sorted = TrieUpdatesSorted::from_overlay(&input.nodes);
+        let state_sorted = HashedPostStateSorted::from_overlay(&input.state);
         Self::from_tx(tx)
             .with_trie_cursor_factory(InMemoryTrieCursorFactory::new(
                 DatabaseTrieCursorFactory::new(tx),

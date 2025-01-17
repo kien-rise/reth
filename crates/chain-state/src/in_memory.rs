@@ -1026,19 +1026,8 @@ mod tests {
     }
 
     impl StateRootProvider for MockStateProvider {
-        fn state_root(&self, _hashed_state: HashedPostState) -> ProviderResult<B256> {
-            Ok(B256::random())
-        }
-
         fn state_root_from_nodes(&self, _input: TrieInput) -> ProviderResult<B256> {
             Ok(B256::random())
-        }
-
-        fn state_root_with_updates(
-            &self,
-            _hashed_state: HashedPostState,
-        ) -> ProviderResult<(B256, TrieUpdates)> {
-            Ok((B256::random(), TrieUpdates::default()))
         }
 
         fn state_root_from_nodes_with_updates(
@@ -1058,8 +1047,8 @@ mod tests {
     }
 
     impl HashedPostStateProvider for MockStateProvider {
-        fn hashed_post_state(&self, _bundle_state: &revm::db::BundleState) -> HashedPostState {
-            HashedPostState::default()
+        fn hashed_post_state(&self, _bundle_state: &revm::db::BundleState) -> Arc<HashedPostState> {
+            Arc::default()
         }
     }
 
@@ -1112,7 +1101,7 @@ mod tests {
         fn witness(
             &self,
             _input: TrieInput,
-            _target: HashedPostState,
+            _target: Arc<HashedPostState>,
         ) -> ProviderResult<B256HashMap<Bytes>> {
             Ok(HashMap::default())
         }

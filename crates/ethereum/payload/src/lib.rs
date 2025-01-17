@@ -38,6 +38,7 @@ use reth_transaction_pool::{
     error::InvalidPoolTransactionError, noop::NoopTransactionPool, BestTransactions,
     BestTransactionsAttributes, PoolTransaction, TransactionPool, ValidPoolTransaction,
 };
+use reth_trie::TrieInput;
 use revm::{
     db::{states::bundle_state::BundleRetention, State},
     primitives::{
@@ -412,7 +413,7 @@ where
     // calculate the state root
     let hashed_state = db.database.db.hashed_post_state(execution_outcome.state());
     let (state_root, trie_output) = {
-        db.database.inner().state_root_with_updates(hashed_state.clone()).inspect_err(|err| {
+        db.database.inner().state_root_from_nodes_with_updates(TrieInput::from_state(hashed_state.clone())).inspect_err(|err| {
             warn!(target: "payload_builder",
                 parent_hash=%parent_header.hash(),
                 %err,
@@ -497,7 +498,7 @@ where
         block: sealed_block.clone(),
         senders: Arc::new(executed_senders),
         execution_output: Arc::new(execution_outcome),
-        hashed_state: Arc::new(hashed_state),
+        hashed_state,
         trie: Arc::new(trie_output),
     };
 
