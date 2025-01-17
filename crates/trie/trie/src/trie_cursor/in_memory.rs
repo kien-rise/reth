@@ -86,6 +86,14 @@ impl<'a, C: TrieCursor> InMemoryAccountTrieCursor<'a, C> {
         let mut db_entry = self.cursor.seek(key.clone())?;
         while db_entry.as_ref().is_some_and(|entry| self.removed_nodes.contains(&entry.0)) {
             db_entry = self.cursor.next()?;
+            if let Some((k, _)) = db_entry.as_ref() {
+                if let Some((k0, _)) = in_memory.as_ref() {
+                    if k >= k0 {
+                        db_entry = None;
+                        break;
+                    }
+                }
+            }
         }
 
         // Compare two entries and return the lowest.
@@ -107,6 +115,14 @@ impl<'a, C: TrieCursor> InMemoryAccountTrieCursor<'a, C> {
             .is_some_and(|entry| entry.0 < last || self.removed_nodes.contains(&entry.0))
         {
             db_entry = self.cursor.next()?;
+            if let Some((k, _)) = db_entry.as_ref() {
+                if let Some((k0, _)) = in_memory.as_ref() {
+                    if k >= k0 {
+                        db_entry = None;
+                        break;
+                    }
+                }
+            }
         }
 
         // Compare two entries and return the lowest.
@@ -213,6 +229,14 @@ impl<C: TrieCursor> InMemoryStorageTrieCursor<'_, C> {
             .is_some_and(|entry| self.removed_nodes.as_ref().is_some_and(|r| r.contains(&entry.0)))
         {
             db_entry = self.cursor.next()?;
+            if let Some((k, _)) = db_entry.as_ref() {
+                if let Some((k0, _)) = in_memory.as_ref() {
+                    if k >= k0 {
+                        db_entry = None;
+                        break;
+                    }
+                }
+            }
         }
 
         // Compare two entries and return the lowest.
@@ -236,6 +260,14 @@ impl<C: TrieCursor> InMemoryStorageTrieCursor<'_, C> {
             entry.0 < last || self.removed_nodes.as_ref().is_some_and(|r| r.contains(&entry.0))
         }) {
             db_entry = self.cursor.next()?;
+            if let Some((k, _)) = db_entry.as_ref() {
+                if let Some((k0, _)) = in_memory.as_ref() {
+                    if k >= k0 {
+                        db_entry = None;
+                        break;
+                    }
+                }
+            }
         }
 
         // Compare two entries and return the lowest.
@@ -288,16 +320,16 @@ impl<C: TrieCursor> TrieCursor for InMemoryStorageTrieCursor<'_, C> {
 /// Given the next in-memory and database entries, return the smallest of the two.
 /// If the node keys are the same, the in-memory entry is given precedence.
 fn compare_trie_node_entries(
-    mut in_memory_item: Option<(Nibbles, BranchNodeCompact)>,
-    mut db_item: Option<(Nibbles, BranchNodeCompact)>,
+    in_memory_item: Option<(Nibbles, BranchNodeCompact)>,
+    db_item: Option<(Nibbles, BranchNodeCompact)>,
 ) -> Option<(Nibbles, BranchNodeCompact)> {
     if let Some((in_memory_entry, db_entry)) = in_memory_item.as_ref().zip(db_item.as_ref()) {
         // If both are not empty, return the smallest of the two
         // In-memory is given precedence if keys are equal
         if in_memory_entry.0 <= db_entry.0 {
-            in_memory_item.take()
+            in_memory_item
         } else {
-            db_item.take()
+            db_item
         }
     } else {
         // Return either non-empty entry
