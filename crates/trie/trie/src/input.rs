@@ -41,10 +41,12 @@ impl TrieInput {
     /// Prepend intermediate nodes and state to the input.
     /// Prefix sets for incoming state will be ignored.
     pub fn prepend_cached(&mut self, mut nodes: TrieUpdates, mut state: HashedPostState) {
+        let t = std::time::Instant::now();
         std::mem::swap(&mut self.nodes, &mut nodes);
         self.nodes.extend(nodes);
         std::mem::swap(&mut self.state, &mut state);
         self.state.extend(state);
+        println!("prepend_cached | t={:?}", t.elapsed().as_micros());
     }
 
     /// Append state to the input and extend the prefix sets.

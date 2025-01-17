@@ -113,8 +113,8 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateRootProvider
     }
 
     fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
+        println!("BundleStateProvider::get_resolved_trie_input");
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        // panic!("BundleStateProvider");
         input.prepend(self.hashed_post_state(bundle_state));
         self.state_provider.get_resolved_trie_input(input)
     }
