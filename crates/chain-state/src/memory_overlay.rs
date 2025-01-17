@@ -135,9 +135,22 @@ impl<N: NodePrimitives> StateRootProvider for MemoryOverlayStateProviderRef<'_, 
     }
 
     fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
-        let MemoryOverlayTrieState { nodes, state } = self.trie_state().clone();
+        let t = std::time::Instant::now();
+        let trie_state = self.trie_state();
+        println!("get_resolved_trie_input | trie_state | t={:?}", t.elapsed().as_micros());
+
+        let t = std::time::Instant::now();
+        let MemoryOverlayTrieState { nodes, state } = trie_state.clone();
+        println!("get_resolved_trie_input | clone | t={:?}", t.elapsed().as_micros());
+
+        let t = std::time::Instant::now();
         input.prepend_cached(nodes, state);
-        self.historical.get_resolved_trie_input(input)
+        println!("get_resolved_trie_input | prepend_cached | t={:?}", t.elapsed().as_micros());
+
+        let t = std::time::Instant::now();
+        let r = self.historical.get_resolved_trie_input(input);
+        println!("get_resolved_trie_input | historical | t={:?}", t.elapsed().as_micros());
+        r
     }
 
     fn database_tx_ref<'a>(&'a self) -> Option<&'a reth_db::mdbx::tx::Tx<reth_db::mdbx::RO>> {
