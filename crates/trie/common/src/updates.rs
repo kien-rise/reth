@@ -44,7 +44,7 @@ impl TrieUpdates {
 
     /// Extends the trie updates.
     pub fn extend(&mut self, other: Self) {
-        self.extend_common(&other);
+        self.account_nodes.retain(|nibbles, _| !other.removed_nodes.contains(nibbles));
         self.account_nodes.extend(exclude_empty_from_pair(other.account_nodes));
         self.removed_nodes.extend(exclude_empty(other.removed_nodes));
         for (hashed_address, storage_trie) in other.storage_tries {
@@ -56,7 +56,7 @@ impl TrieUpdates {
     ///
     /// Slightly less efficient than [`Self::extend`], but preferred to `extend(other.clone())`.
     pub fn extend_ref(&mut self, other: &Self) {
-        self.extend_common(other);
+        self.account_nodes.retain(|nibbles, _| !other.removed_nodes.contains(nibbles));
         self.account_nodes.extend(exclude_empty_from_pair(
             other.account_nodes.iter().map(|(k, v)| (k.clone(), v.clone())),
         ));
@@ -66,9 +66,9 @@ impl TrieUpdates {
         }
     }
 
-    fn extend_common(&mut self, other: &Self) {
-        self.account_nodes.retain(|nibbles, _| !other.removed_nodes.contains(nibbles));
-    }
+    // fn extend_common(&mut self, other: &Self) {
+    //     self.account_nodes.retain(|nibbles, _| !other.removed_nodes.contains(nibbles));
+    // }
 
     /// Insert storage updates for a given hashed address.
     pub fn insert_storage_updates(
