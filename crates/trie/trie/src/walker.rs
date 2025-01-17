@@ -54,6 +54,7 @@ pub struct TrieWalker<C> {
     #[cfg(feature = "metrics")]
     /// Walker metrics.
     metrics: WalkerMetrics,
+    should_log: bool,
 }
 
 impl<C> TrieWalker<C> {
@@ -67,6 +68,7 @@ impl<C> TrieWalker<C> {
             removed_keys: None,
             #[cfg(feature = "metrics")]
             metrics: WalkerMetrics::default(),
+            should_log: false,
         };
         this.update_skip_node();
         this
@@ -137,11 +139,19 @@ impl<C> TrieWalker<C> {
     }
 
     /// Updates the skip node flag based on the walker's current state.
+    // 2025-01-16T19:16:07.704129092Z count = 134217728
+    // 2025-01-16T19:16:07.704150261Z   37137212 update_skip_node | aa=false | bb=true
+    // 2025-01-16T19:16:07.704153588Z   16688903 update_skip_node | aa=true | bb=true
+    // 2025-01-16T19:16:07.704156353Z   16959821 update_skip_node | aa=false | bb=false
+    // 2025-01-16T19:16:07.704158948Z   63431792 update_skip_node | aa=true | bb=false
+
     fn update_skip_node(&mut self) {
         self.can_skip_current_node = self.stack.last().is_some_and(|node| {
             let aa = !self.changes.contains(node.full_key());
             let bb = node.hash_flag();
-            log!("update_skip_node | aa={:?} | bb={:?}", aa, bb);
+            if self.should_log {
+                log!("update_skip_node | aa={:?} | bb={:?}", aa, bb);
+            }
             aa && bb
         });
     }
@@ -159,6 +169,31 @@ impl<C: TrieCursor> TrieWalker<C> {
             removed_keys: None,
             #[cfg(feature = "metrics")]
             metrics: WalkerMetrics::default(),
+            should_log: false,
+        };
+
+        // Set up the root node of the trie in the stack, if it exists.
+        if let Some((key, value)) = this.node(true).unwrap() {
+            this.stack[0] = CursorSubNode::new(key, Some(value));
+        }
+
+        // Update the skip state for the root node.
+        this.update_skip_node();
+        this
+    }
+
+    /// Constructs a new `TrieWalker`, setting up the initial state of the stack and cursor.
+    pub fn new_with_log(cursor: C, changes: PrefixSet) -> Self {
+        // Initialize the walker with a single empty stack element.
+        let mut this = Self {
+            cursor,
+            changes,
+            stack: vec![CursorSubNode::default()],
+            can_skip_current_node: false,
+            removed_keys: None,
+            #[cfg(feature = "metrics")]
+            metrics: WalkerMetrics::default(),
+            should_log: true,
         };
 
         // Set up the root node of the trie in the stack, if it exists.
