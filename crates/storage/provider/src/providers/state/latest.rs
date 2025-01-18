@@ -69,21 +69,8 @@ impl<Provider: BlockHashReader> BlockHashReader for LatestStateProviderRef<'_, P
 impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
     for LatestStateProviderRef<'_, Provider>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        StateRoot::overlay_root(self.tx(), hashed_state)
-            .map_err(|err| ProviderError::Database(err.into()))
-    }
-
     fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
         StateRoot::overlay_root_from_nodes(self.tx(), input)
-            .map_err(|err| ProviderError::Database(err.into()))
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        StateRoot::overlay_root_with_updates(self.tx(), hashed_state)
             .map_err(|err| ProviderError::Database(err.into()))
     }
 
@@ -234,18 +221,8 @@ delegate_provider_impls!(LatestStateProvider<Provider> where [Provider: DBProvid
 impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
     for LatestStateProvider<Provider>
 {
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
-        self.as_ref().state_root(hashed_state)
-    }
     fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
         self.as_ref().state_root_from_nodes(input)
-    }
-
-    fn state_root_with_updates(
-        &self,
-        hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        self.as_ref().state_root_with_updates(hashed_state)
     }
 
     fn state_root_from_nodes_with_updates(

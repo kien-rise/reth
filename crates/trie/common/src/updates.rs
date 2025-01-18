@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{BranchNodeCompact, HashBuilder, Nibbles};
 use alloc::vec::Vec;
 use alloy_primitives::{
@@ -370,6 +372,45 @@ impl TrieUpdatesSorted {
     /// Returns reference to updated storage tries.
     pub const fn storage_tries_ref(&self) -> &B256HashMap<StorageTrieUpdatesSorted> {
         &self.storage_tries
+    }
+
+    /// From overlay
+    pub fn from_overlay(nodes: &[Arc<TrieUpdates>]) -> Self {
+        let mut changed_nodes: Vec<_> = nodes
+            .iter()
+            .flat_map(|nodes| {
+                Iterator::chain(
+                    nodes.account_nodes.iter().map(|(k, v)| (k.clone(), Some(v.clone()))),
+                    nodes.removed_nodes.iter().map(|k| (k.clone(), None)),
+                )
+            })
+            .collect();
+        changed_nodes.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+
+        changed_nodes.dedup_by(|latter, former| {
+            if latter.0 == former.0 {
+                std::mem::swap(latter, former);
+                true
+            } else {
+                false
+            }
+        });
+
+        let mut storage_tries: B256HashMap<StorageTrieUpdates> = B256HashMap::default();
+
+        for nodes in nodes.iter() {
+            for (hashed_address, storage_trie) in nodes.storage_tries.iter() {
+                storage_tries.entry(*hashed_address).or_default().extend_ref(storage_trie);
+            }
+        }
+
+        TrieUpdatesSorted {
+            changed_nodes,
+            storage_tries: storage_tries
+                .into_iter()
+                .map(|(hashed_address, updates)| (hashed_address, updates.into_sorted()))
+                .collect(),
+        }
     }
 }
 

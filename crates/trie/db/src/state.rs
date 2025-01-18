@@ -12,11 +12,13 @@ use reth_db_api::{
 use reth_execution_errors::StateRootError;
 use reth_storage_errors::db::DatabaseError;
 use reth_trie::{
-    hashed_cursor::HashedPostStateCursorFactory, trie_cursor::InMemoryTrieCursorFactory,
-    updates::TrieUpdates, HashedPostState, HashedStorage, KeccakKeyHasher, KeyHasher, StateRoot,
+    hashed_cursor::HashedPostStateCursorFactory,
+    trie_cursor::InMemoryTrieCursorFactory,
+    updates::{TrieUpdates, TrieUpdatesSorted},
+    HashedPostState, HashedPostStateSorted, HashedStorage, KeccakKeyHasher, KeyHasher, StateRoot,
     StateRootProgress, TrieInput,
 };
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 use tracing::debug;
 
 /// Extends [`StateRoot`] with operations specific for working with a database transaction.
@@ -102,14 +104,18 @@ pub trait DatabaseStateRoot<'a, TX>: Sized {
     /// # Returns
     ///
     /// The state root for this [`HashedPostState`].
-    fn overlay_root(tx: &'a TX, post_state: HashedPostState) -> Result<B256, StateRootError>;
+    fn overlay_root(tx: &'a TX, post_state: HashedPostState) -> Result<B256, StateRootError> {
+        Self::overlay_root_from_nodes(tx, TrieInput::from_state(Arc::new(post_state)))
+    }
 
     /// Calculates the state root for this [`HashedPostState`] and returns it alongside trie
     /// updates. See [`Self::overlay_root`] for more info.
     fn overlay_root_with_updates(
         tx: &'a TX,
         post_state: HashedPostState,
-    ) -> Result<(B256, TrieUpdates), StateRootError>;
+    ) -> Result<(B256, TrieUpdates), StateRootError> {
+        Self::overlay_root_from_nodes_with_updates(tx, TrieInput::from_state(Arc::new(post_state)))
+    }
 
     /// Calculates the state root for provided [`HashedPostState`] using cached intermediate nodes.
     fn overlay_root_from_nodes(tx: &'a TX, input: TrieInput) -> Result<B256, StateRootError>;
@@ -168,34 +174,9 @@ impl<'a, TX: DbTx> DatabaseStateRoot<'a, TX>
         Self::incremental_root_calculator(tx, range)?.root_with_progress()
     }
 
-    fn overlay_root(tx: &'a TX, post_state: HashedPostState) -> Result<B256, StateRootError> {
-        let prefix_sets = post_state.construct_prefix_sets().freeze();
-        let state_sorted = post_state.into_sorted();
-        StateRoot::new(
-            DatabaseTrieCursorFactory::new(tx),
-            HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(tx), &state_sorted),
-        )
-        .with_prefix_sets(prefix_sets)
-        .root()
-    }
-
-    fn overlay_root_with_updates(
-        tx: &'a TX,
-        post_state: HashedPostState,
-    ) -> Result<(B256, TrieUpdates), StateRootError> {
-        let prefix_sets = post_state.construct_prefix_sets().freeze();
-        let state_sorted = post_state.into_sorted();
-        StateRoot::new(
-            DatabaseTrieCursorFactory::new(tx),
-            HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(tx), &state_sorted),
-        )
-        .with_prefix_sets(prefix_sets)
-        .root_with_updates()
-    }
-
     fn overlay_root_from_nodes(tx: &'a TX, input: TrieInput) -> Result<B256, StateRootError> {
-        let state_sorted = input.state.into_sorted();
-        let nodes_sorted = input.nodes.into_sorted();
+        let nodes_sorted = TrieUpdatesSorted::from_overlay(&input.nodes);
+        let state_sorted = HashedPostStateSorted::from_overlay(&input.state);
         StateRoot::new(
             InMemoryTrieCursorFactory::new(DatabaseTrieCursorFactory::new(tx), &nodes_sorted),
             HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(tx), &state_sorted),
@@ -208,8 +189,8 @@ impl<'a, TX: DbTx> DatabaseStateRoot<'a, TX>
         tx: &'a TX,
         input: TrieInput,
     ) -> Result<(B256, TrieUpdates), StateRootError> {
-        let state_sorted = input.state.into_sorted();
-        let nodes_sorted = input.nodes.into_sorted();
+        let nodes_sorted = TrieUpdatesSorted::from_overlay(&input.nodes);
+        let state_sorted = HashedPostStateSorted::from_overlay(&input.state);
         StateRoot::new(
             InMemoryTrieCursorFactory::new(DatabaseTrieCursorFactory::new(tx), &nodes_sorted),
             HashedPostStateCursorFactory::new(DatabaseHashedCursorFactory::new(tx), &state_sorted),

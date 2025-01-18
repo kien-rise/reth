@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloc::vec::Vec;
 use alloy_primitives::{
     keccak256,

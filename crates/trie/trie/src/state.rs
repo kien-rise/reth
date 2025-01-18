@@ -12,7 +12,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::Account;
 use reth_trie_common::KeyHasher;
 use revm::db::{states::CacheAccount, AccountStatus, BundleAccount};
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 /// Representation of in-memory hashed state.
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
@@ -301,6 +301,15 @@ impl HashedPostStateSorted {
     /// Returns reference to hashed account storages.
     pub const fn account_storages(&self) -> &B256HashMap<HashedStorageSorted> {
         &self.storages
+    }
+
+    /// From overlay
+    pub fn from_overlay(state: &[Arc<HashedPostState>]) -> Self {
+        let mut aggregated = HashedPostState::default();
+        for state in state {
+            aggregated.extend_ref(state);
+        }
+        aggregated.into_sorted()
     }
 }
 

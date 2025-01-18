@@ -9,6 +9,7 @@ use alloy_rlp::Decodable;
 use alloy_rpc_types::engine::{BlobsBundleV1, PayloadAttributes};
 use clap::Parser;
 use eyre::Context;
+use reth_trie::{HashedPostStateSorted};
 use reth_basic_payload_builder::{
     BuildArguments, BuildOutcome, Cancelled, PayloadBuilder, PayloadConfig,
 };
@@ -288,7 +289,7 @@ impl<C: ChainSpecParser<ChainSpec = ChainSpec>> Command<C> {
                 provider_rw.append_blocks_with_state(
                     Vec::from([block_with_senders]),
                     execution_outcome,
-                    hashed_post_state.into_sorted(),
+                    HashedPostStateSorted::from_overlay(&[Arc::new(hashed_post_state)]),
                     trie_updates,
                 )?;
                 info!(target: "reth::cli", "Successfully appended built block");

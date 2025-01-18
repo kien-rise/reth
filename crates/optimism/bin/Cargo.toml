@@ -29,7 +29,7 @@ tracing.workspace = true
 workspace = true
 
 [features]
-default = ["jemalloc"]
+default = ["jemalloc", "optimism"]
 
 jemalloc = ["reth-cli-util/jemalloc", "reth-optimism-cli/jemalloc"]
 jemalloc-prof = ["reth-cli-util/jemalloc-prof"]

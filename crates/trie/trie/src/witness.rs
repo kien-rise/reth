@@ -86,7 +86,7 @@ where
     /// `state` - state transition containing both modified and touched accounts and storage slots.
     pub fn compute(
         mut self,
-        state: HashedPostState,
+        state: &HashedPostState,
     ) -> Result<B256HashMap<Bytes>, TrieWitnessError> {
         if state.is_empty() {
             return Ok(self.witness)

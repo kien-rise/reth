@@ -14,7 +14,7 @@ use reth_trie::{
     MultiProofTargets, StorageMultiProof, TrieInput,
 };
 use revm::db::BundleState;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 /// A state provider that stores references to in-memory blocks along with their state as well as a
 /// reference of the historical state provider for fallback lookups.
@@ -54,8 +54,8 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
         self.trie_state.get_or_init(|| {
             let mut trie_state = MemoryOverlayTrieState::default();
             for block in self.in_memory.iter().rev() {
-                trie_state.state.extend_ref(block.hashed_state.as_ref());
-                trie_state.nodes.extend_ref(block.trie.as_ref());
+                trie_state.state.push(block.hashed_state.clone());
+                trie_state.nodes.push(block.trie.clone());
             }
             trie_state
         })
@@ -108,21 +108,10 @@ impl<N: NodePrimitives> AccountReader for MemoryOverlayStateProviderRef<'_, N> {
 }
 
 impl<N: NodePrimitives> StateRootProvider for MemoryOverlayStateProviderRef<'_, N> {
-    fn state_root(&self, state: HashedPostState) -> ProviderResult<B256> {
-        self.state_root_from_nodes(TrieInput::from_state(state))
-    }
-
     fn state_root_from_nodes(&self, mut input: TrieInput) -> ProviderResult<B256> {
         let MemoryOverlayTrieState { nodes, state } = self.trie_state().clone();
         input.prepend_cached(nodes, state);
         self.historical.state_root_from_nodes(input)
-    }
-
-    fn state_root_with_updates(
-        &self,
-        state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)> {
-        self.state_root_from_nodes_with_updates(TrieInput::from_state(state))
     }
 
     fn state_root_from_nodes_with_updates(
@@ -161,9 +150,14 @@ impl<N: NodePrimitives> StateRootProvider for MemoryOverlayStateProviderRef<'_, 
 impl<N: NodePrimitives> StorageRootProvider for MemoryOverlayStateProviderRef<'_, N> {
     // TODO: Currently this does not reuse available in-memory trie nodes.
     fn storage_root(&self, address: Address, storage: HashedStorage) -> ProviderResult<B256> {
-        let state = &self.trie_state().state;
-        let mut hashed_storage =
-            state.storages.get(&keccak256(address)).cloned().unwrap_or_default();
+        let hashed_address = keccak256(address);
+        let mut hashed_storage = HashedStorage::default();
+        for state in self.trie_state().state.iter() {
+            match state.storages.get(&hashed_address) {
+                Some(storage) => hashed_storage.extend(storage),
+                None => {}
+            }
+        }
         hashed_storage.extend(&storage);
         self.historical.storage_root(address, hashed_storage)
     }
@@ -175,9 +169,14 @@ impl<N: NodePrimitives> StorageRootProvider for MemoryOverlayStateProviderRef<'_
         slot: B256,
         storage: HashedStorage,
     ) -> ProviderResult<reth_trie::StorageProof> {
-        let state = &self.trie_state().state;
-        let mut hashed_storage =
-            state.storages.get(&keccak256(address)).cloned().unwrap_or_default();
+        let hashed_address = keccak256(address);
+        let mut hashed_storage = HashedStorage::default();
+        for state in self.trie_state().state.iter() {
+            match state.storages.get(&hashed_address) {
+                Some(storage) => hashed_storage.extend(storage),
+                None => {}
+            }
+        }
         hashed_storage.extend(&storage);
         self.historical.storage_proof(address, slot, hashed_storage)
     }
@@ -189,9 +188,14 @@ impl<N: NodePrimitives> StorageRootProvider for MemoryOverlayStateProviderRef<'_
         slots: &[B256],
         storage: HashedStorage,
     ) -> ProviderResult<StorageMultiProof> {
-        let state = &self.trie_state().state;
-        let mut hashed_storage =
-            state.storages.get(&keccak256(address)).cloned().unwrap_or_default();
+        let hashed_address = keccak256(address);
+        let mut hashed_storage = HashedStorage::default();
+        for state in self.trie_state().state.iter() {
+            match state.storages.get(&hashed_address) {
+                Some(storage) => hashed_storage.extend(storage),
+                None => {}
+            }
+        }
         hashed_storage.extend(&storage);
         self.historical.storage_multiproof(address, slots, hashed_storage)
     }
@@ -266,7 +270,7 @@ impl<N: NodePrimitives> StateProvider for MemoryOverlayStateProviderRef<'_, N> {
 #[derive(Clone, Default, Debug)]
 pub(crate) struct MemoryOverlayTrieState {
     /// The collection of aggregated in-memory trie updates.
-    pub(crate) nodes: TrieUpdates,
+    pub(crate) nodes: Vec<Arc<TrieUpdates>>,
     /// The collection of hashed state from in-memory blocks.
-    pub(crate) state: HashedPostState,
+    pub(crate) state: Vec<Arc<HashedPostState>>,
 }

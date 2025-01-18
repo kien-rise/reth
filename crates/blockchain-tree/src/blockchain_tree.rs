@@ -29,7 +29,7 @@ use reth_provider::{
 };
 use reth_stages_api::{MetricEvent, MetricEventsSender};
 use reth_storage_errors::provider::{ProviderResult, RootMismatch};
-use reth_trie::{hashed_cursor::HashedPostStateCursorFactory, StateRoot};
+use reth_trie::{hashed_cursor::HashedPostStateCursorFactory, HashedPostStateSorted, StateRoot};
 use reth_trie_db::{DatabaseHashedCursorFactory, DatabaseStateRoot};
 use std::{
     collections::{btree_map::Entry, BTreeMap, HashSet},
@@ -1213,7 +1213,7 @@ where
         let (blocks, state, chain_trie_updates) = chain.into_inner();
         let hashed_state = self.externals.provider_factory.hashed_post_state(state.state());
         let prefix_sets = hashed_state.construct_prefix_sets().freeze();
-        let hashed_state_sorted = hashed_state.into_sorted();
+        let hashed_state_sorted = HashedPostStateSorted::from_overlay(&[Arc::new(hashed_state)]);
 
         // Compute state root or retrieve cached trie updates before opening write transaction.
         let block_hash_numbers =

@@ -27,6 +27,7 @@ use reth_trie_parallel::root::ParallelStateRoot;
 use std::{
     collections::BTreeMap,
     ops::{Deref, DerefMut},
+    sync::Arc,
     time::Instant,
 };
 
@@ -228,7 +229,9 @@ impl AppendableChain {
                 execution_outcome.extend(initial_execution_outcome.clone());
                 ParallelStateRoot::new(
                     consistent_view,
-                    TrieInput::from_state(provider.hashed_post_state(execution_outcome.state())),
+                    TrieInput::from_state(Arc::new(
+                        provider.hashed_post_state(execution_outcome.state()),
+                    )),
                 )
                 .incremental_root_with_updates()
                 .map(|(root, updates)| (root, Some(updates)))

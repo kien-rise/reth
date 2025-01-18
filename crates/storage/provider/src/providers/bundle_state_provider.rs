@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     AccountReader, BlockHashReader, ExecutionDataProvider, StateProvider, StateRootProvider,
 };
@@ -108,14 +110,14 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateRootProvider
         mut input: TrieInput,
     ) -> ProviderResult<(B256, TrieUpdates)> {
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        input.prepend(self.hashed_post_state(bundle_state));
+        input.prepend(Arc::new(self.hashed_post_state(bundle_state)));
         self.state_provider.state_root_from_nodes_with_updates(input)
     }
 
     fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
         println!("BundleStateProvider::get_resolved_trie_input");
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        input.prepend(self.hashed_post_state(bundle_state));
+        input.prepend(Arc::new(self.hashed_post_state(bundle_state)));
         self.state_provider.get_resolved_trie_input(input)
     }
 
@@ -170,7 +172,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
         slots: &[B256],
     ) -> ProviderResult<AccountProof> {
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        input.prepend(self.hashed_post_state(bundle_state));
+        input.prepend(Arc::new(self.hashed_post_state(bundle_state)));
         self.state_provider.proof(input, address, slots)
     }
 
@@ -180,7 +182,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
         targets: MultiProofTargets,
     ) -> ProviderResult<MultiProof> {
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        input.prepend(self.hashed_post_state(bundle_state));
+        input.prepend(Arc::new(self.hashed_post_state(bundle_state)));
         self.state_provider.multiproof(input, targets)
     }
 
@@ -190,7 +192,7 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateProofProvider
         target: HashedPostState,
     ) -> ProviderResult<B256HashMap<Bytes>> {
         let bundle_state = self.block_execution_data_provider.execution_outcome().state();
-        input.prepend(self.hashed_post_state(bundle_state));
+        input.prepend(Arc::new(self.hashed_post_state(bundle_state)));
         self.state_provider.witness(input, target)
     }
 }

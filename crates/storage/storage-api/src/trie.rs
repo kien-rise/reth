@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_primitives::{map::B256HashMap, Address, Bytes, B256};
 use reth_db::mdbx::{tx::Tx, RO};
 use reth_storage_errors::provider::ProviderResult;
@@ -16,7 +18,9 @@ pub trait StateRootProvider: Send + Sync {
     /// It is recommended to provide a different implementation from
     /// `state_root_with_updates` since it affects the memory usage during state root
     /// computation.
-    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256>;
+    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
+        self.state_root_from_nodes(TrieInput::from_state(Arc::new(hashed_state)))
+    }
 
     /// Returns the state root of the `HashedPostState` on top of the current state but re-uses the
     /// intermediate nodes to speed up the computation. It's up to the caller to construct the
@@ -28,7 +32,9 @@ pub trait StateRootProvider: Send + Sync {
     fn state_root_with_updates(
         &self,
         hashed_state: HashedPostState,
-    ) -> ProviderResult<(B256, TrieUpdates)>;
+    ) -> ProviderResult<(B256, TrieUpdates)> {
+        self.state_root_from_nodes_with_updates(TrieInput::from_state(Arc::new(hashed_state)))
+    }
 
     /// Returns state root and trie updates.
     /// See [`StateRootProvider::state_root_from_nodes`] for more info.

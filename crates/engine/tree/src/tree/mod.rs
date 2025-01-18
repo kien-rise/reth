@@ -2321,7 +2321,7 @@ where
                 return Err(err.into())
             }
 
-            let hashed_state = self.provider.hashed_post_state(&output.state);
+            let hashed_state = Arc::new(self.provider.hashed_post_state(&output.state));
 
             trace!(target: "engine::tree", block=?sealed_block.num_hash(), "Calculating block state root");
             let root_time = Instant::now();
@@ -2355,15 +2355,18 @@ where
                         Err(error) => {
                             info!(target: "engine::tree", ?error, "Failed to wait for state root task result");
                             // Fall back to sequential calculation
-                            let (root, updates) =
-                                state_provider.state_root_with_updates(hashed_state.clone())?;
+                            let (root, updates) = state_provider
+                                .state_root_from_nodes_with_updates(TrieInput::from_state(
+                                    hashed_state.clone(),
+                                ))?;
                             (root, updates, root_time.elapsed())
                         }
                     }
                 } else {
-                    match self
-                        .compute_state_root_parallel(block.header().parent_hash(), &hashed_state)
-                    {
+                    match self.compute_state_root_parallel(
+                        block.header().parent_hash(),
+                        hashed_state.clone(),
+                    ) {
                         Ok(result) => {
                             info!(
                                 target: "engine::tree",
@@ -2377,8 +2380,10 @@ where
                             error,
                         ))) => {
                             debug!(target: "engine", %error, "Parallel state root computation failed consistency check, falling back");
-                            let (root, updates) =
-                                state_provider.state_root_with_updates(hashed_state.clone())?;
+                            let (root, updates) = state_provider
+                                .state_root_from_nodes_with_updates(TrieInput::from_state(
+                                    hashed_state.clone(),
+                                ))?;
                             (root, updates, root_time.elapsed())
                         }
                         Err(error) => return Err(InsertBlockErrorKindTwo::Other(Box::new(error))),
@@ -2386,8 +2391,9 @@ where
                 }
             } else {
                 debug!(target: "engine::tree", block=?sealed_block.num_hash(), ?persistence_not_in_progress, "Failed to compute state root in parallel");
-                let (root, updates) =
-                    state_provider.state_root_with_updates(hashed_state.clone())?;
+                let (root, updates) = state_provider.state_root_from_nodes_with_updates(
+                    TrieInput::from_state(hashed_state.clone()),
+                )?;
                 (root, updates, root_time.elapsed())
             };
 
@@ -2423,7 +2429,7 @@ where
             block: sealed_block.clone(),
             senders: Arc::new(block.senders),
             execution_output: Arc::new(ExecutionOutcome::from((output, block_number))),
-            hashed_state: Arc::new(hashed_state),
+            hashed_state,
             trie: Arc::new(trie_output),
         };
 
@@ -2460,13 +2466,13 @@ where
     fn compute_state_root_parallel(
         &self,
         parent_hash: B256,
-        hashed_state: &HashedPostState,
+        hashed_state: Arc<HashedPostState>,
     ) -> Result<(B256, TrieUpdates), ParallelStateRootError> {
         let consistent_view = ConsistentDbView::new_with_latest_tip(self.provider.clone())?;
 
         let mut input = self.compute_trie_input(consistent_view.clone(), parent_hash)?;
         // Extend with block we are validating root for.
-        input.append_ref(hashed_state);
+        input.append(hashed_state);
 
         ParallelStateRoot::new(consistent_view, input).incremental_root_with_updates()
     }
@@ -2483,17 +2489,17 @@ where
             debug!(target: "engine::tree", %parent_hash, %historical, "Parent found in memory");
             // Retrieve revert state for historical block.
             let revert_state = consistent_view.revert_state(historical)?;
-            input.append(revert_state);
+            input.append(Arc::new(revert_state));
 
             // Extend with contents of parent in-memory blocks.
             for block in blocks.iter().rev() {
-                input.append_cached_ref(block.trie_updates(), block.hashed_state())
+                input.append_cached(block.trie.clone(), block.hashed_state.clone())
             }
         } else {
             // The block attaches to canonical persisted parent.
             debug!(target: "engine::tree", %parent_hash, "Parent found on disk");
             let revert_state = consistent_view.revert_state(parent_hash)?;
-            input.append(revert_state);
+            input.append(Arc::new(revert_state));
         }
 
         Ok(input)
