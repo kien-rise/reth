@@ -18,7 +18,7 @@ use reth_trie_common::{
     MultiProof, MultiProofTargets, Nibbles, TrieAccount, TrieNode, EMPTY_ROOT_HASH,
     TRIE_ACCOUNT_RLP_MAX_SIZE,
 };
-use std::{fmt, iter::Peekable};
+use std::{collections::HashMap, fmt, iter::Peekable};
 
 /// Sparse state trie representing lazy-loaded Ethereum state trie.
 pub struct SparseStateTrie<F: BlindedProviderFactory = DefaultBlindedProviderFactory> {
@@ -323,8 +323,10 @@ impl<F: BlindedProviderFactory> SparseStateTrie<F> {
         self.state.as_revealed_mut().map(|state| {
             let updates = state.take_updates();
             TrieUpdates {
-                account_nodes: updates.updated_nodes,
-                removed_nodes: updates.removed_nodes,
+                changed_nodes: HashMap::from_iter(Iterator::chain(
+                    updates.removed_nodes.into_iter().map(|k| (k, None)),
+                    updates.updated_nodes.into_iter().map(|(k, v)| (k, Some(v))),
+                )),
                 storage_tries: self
                     .storages
                     .iter_mut()
@@ -613,7 +615,7 @@ mod tests {
         pretty_assertions::assert_eq!(
             sparse_updates,
             TrieUpdates {
-                account_nodes: HashMap::default(),
+                changed_nodes: HashMap::default(),
                 storage_tries: HashMap::from_iter([(
                     b256!("1100000000000000000000000000000000000000000000000000000000000000"),
                     StorageTrieUpdates {
@@ -622,7 +624,6 @@ mod tests {
                         removed_nodes: HashSet::default()
                     }
                 )]),
-                removed_nodes: HashSet::default()
             }
         );
     }
