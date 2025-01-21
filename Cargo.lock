@@ -6572,6 +6572,7 @@ dependencies = [
  "parking_lot",
  "pin-project",
  "rand 0.8.5",
+ "rayon",
  "reth-chainspec",
  "reth-errors",
  "reth-execution-types",

@@ -1,7 +1,9 @@
 use super::ExecutedBlock;
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{
-    keccak256, map::B256HashMap, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
+    keccak256,
+    map::{hash_map, B256HashMap},
+    Address, BlockNumber, Bytes, StorageKey, StorageValue, B256,
 };
 use reth_errors::ProviderResult;
 use reth_primitives::{Account, Bytecode, NodePrimitives};
@@ -53,10 +55,63 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
     fn trie_state(&self) -> &MemoryOverlayTrieState {
         self.trie_state.get_or_init(|| {
             let mut trie_state = MemoryOverlayTrieState::default();
-            for block in self.in_memory.iter().rev() {
-                trie_state.state.extend_ref(block.hashed_state.as_ref());
-                trie_state.nodes.extend_ref(block.trie.as_ref());
-            }
+
+            rayon::scope(|s| {
+                s.spawn(|_| {
+                    trie_state.nodes.changed_nodes.reserve(
+                        self.in_memory.iter().map(|block| block.trie.changed_nodes.len()).sum(),
+                    );
+                    for block in self.in_memory.iter().rev() {
+                        trie_state.nodes.changed_nodes.extend(
+                            block.trie.changed_nodes.iter().map(|(k, v)| (k.clone(), v.clone())),
+                        )
+                    }
+                });
+                s.spawn(|_| {
+                    trie_state.nodes.storage_tries.reserve(
+                        self.in_memory.iter().map(|block| block.trie.storage_tries.len()).sum(),
+                    );
+                    for block in self.in_memory.iter().rev() {
+                        for (hashed_address, storage_trie) in block.trie.storage_tries.iter() {
+                            trie_state
+                                .nodes
+                                .storage_tries
+                                .entry(*hashed_address)
+                                .or_default()
+                                .extend_ref(storage_trie);
+                        }
+                    }
+                });
+                s.spawn(|_| {
+                    trie_state.state.accounts.reserve(
+                        self.in_memory.iter().map(|block| block.hashed_state.accounts.len()).sum(),
+                    );
+                    for block in self.in_memory.iter().rev() {
+                        trie_state
+                            .state
+                            .accounts
+                            .extend(block.hashed_state.accounts.iter().map(|(&k, &v)| (k, v)));
+                    }
+                });
+                s.spawn(|_| {
+                    trie_state.state.storages.reserve(
+                        self.in_memory.iter().map(|block| block.hashed_state.storages.len()).sum(),
+                    );
+                    for block in self.in_memory.iter().rev() {
+                        for (&hashed_address, storage) in block.hashed_state.storages.iter() {
+                            match trie_state.state.storages.entry(hashed_address) {
+                                hash_map::Entry::Vacant(entry) => {
+                                    entry.insert(storage.clone());
+                                }
+                                hash_map::Entry::Occupied(mut entry) => {
+                                    entry.get_mut().extend(&storage);
+                                }
+                            }
+                        }
+                    }
+                })
+            });
+
             trie_state
         })
     }
