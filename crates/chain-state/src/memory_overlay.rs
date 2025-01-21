@@ -58,6 +58,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
 
             rayon::scope(|s| {
                 s.spawn(|_| {
+                    let t = std::time::Instant::now();
                     trie_state.nodes.changed_nodes.reserve(
                         self.in_memory.iter().map(|block| block.trie.changed_nodes.len()).sum(),
                     );
@@ -66,8 +67,10 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                             block.trie.changed_nodes.iter().map(|(k, v)| (k.clone(), v.clone())),
                         )
                     }
+                    println!("trie_state | trie_state.nodes.changed_nodes | {:?}", t.elapsed().as_micros());
                 });
                 s.spawn(|_| {
+                    let t = std::time::Instant::now();
                     trie_state.nodes.storage_tries.reserve(
                         self.in_memory.iter().map(|block| block.trie.storage_tries.len()).sum(),
                     );
@@ -81,8 +84,10 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                                 .extend_ref(storage_trie);
                         }
                     }
+                    println!("trie_state | trie_state.nodes.storage_tries | {:?}", t.elapsed().as_micros());
                 });
                 s.spawn(|_| {
+                    let t = std::time::Instant::now();
                     trie_state.state.accounts.reserve(
                         self.in_memory.iter().map(|block| block.hashed_state.accounts.len()).sum(),
                     );
@@ -92,8 +97,10 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                             .accounts
                             .extend(block.hashed_state.accounts.iter().map(|(&k, &v)| (k, v)));
                     }
+                    println!("trie_state | trie_state.state.accounts | {:?}", t.elapsed().as_micros());
                 });
                 s.spawn(|_| {
+                    let t = std::time::Instant::now();
                     trie_state.state.storages.reserve(
                         self.in_memory.iter().map(|block| block.hashed_state.storages.len()).sum(),
                     );
@@ -109,6 +116,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                             }
                         }
                     }
+                    println!("trie_state | trie_state.state.accounts | {:?}", t.elapsed().as_micros());
                 })
             });
 
