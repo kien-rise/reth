@@ -4,10 +4,9 @@ use crate::{
 };
 use alloy_primitives::{
     keccak256,
-    map::{hash_map, B256HashMap, B256HashSet, HashMap, HashSet},
+    map::{hash_map, B256HashMap, HashMap, HashSet},
     Address, B256, U256,
 };
-use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use reth_primitives::Account;
 use reth_trie_common::KeyHasher;
@@ -174,17 +173,9 @@ impl HashedPostState {
 
     /// Converts hashed post state into [`HashedPostStateSorted`].
     pub fn into_sorted(self) -> HashedPostStateSorted {
-        let mut updated_accounts = Vec::new();
-        let mut destroyed_accounts = HashSet::default();
-        for (hashed_address, info) in self.accounts {
-            if let Some(info) = info {
-                updated_accounts.push((hashed_address, info));
-            } else {
-                destroyed_accounts.insert(hashed_address);
-            }
-        }
-        updated_accounts.sort_unstable_by_key(|(address, _)| *address);
-        let accounts = HashedAccountsSorted { accounts: updated_accounts, destroyed_accounts };
+        let mut changes = Vec::from_iter(self.accounts.into_iter());
+        changes.sort_unstable_by_key(|(address, _)| *address);
+        let accounts = HashedAccountsSorted { changes };
 
         let storages = self
             .storages
@@ -252,18 +243,15 @@ impl HashedStorage {
 
     /// Converts hashed storage into [`HashedStorageSorted`].
     pub fn into_sorted(self) -> HashedStorageSorted {
-        let mut non_zero_valued_slots = Vec::new();
-        let mut zero_valued_slots = HashSet::default();
-        for (hashed_slot, value) in self.storage {
-            if value.is_zero() {
-                zero_valued_slots.insert(hashed_slot);
+        let mut changes = Vec::from_iter(self.storage.into_iter().map(|(k, v)| {
+            if v.is_zero() {
+                (k, None)
             } else {
-                non_zero_valued_slots.push((hashed_slot, value));
+                (k, Some(v))
             }
-        }
-        non_zero_valued_slots.sort_unstable_by_key(|(key, _)| *key);
-
-        HashedStorageSorted { non_zero_valued_slots, zero_valued_slots, wiped: self.wiped }
+        }));
+        changes.sort_unstable_by_key(|(key, _)| *key);
+        HashedStorageSorted { wiped: self.wiped, changes }
     }
 }
 
@@ -300,31 +288,23 @@ impl HashedPostStateSorted {
 #[derive(Clone, Eq, PartialEq, Default, Debug)]
 pub struct HashedAccountsSorted {
     /// Sorted collection of hashed addresses and their account info.
-    pub(crate) accounts: Vec<(B256, Account)>,
-    /// Set of destroyed account keys.
-    pub(crate) destroyed_accounts: B256HashSet,
+    pub(crate) changes: Vec<(B256, Option<Account>)>,
 }
 
 impl HashedAccountsSorted {
-    /// Returns a sorted iterator over updated accounts.
-    pub fn accounts_sorted(&self) -> impl Iterator<Item = (B256, Option<Account>)> {
-        self.accounts
-            .iter()
-            .map(|(address, account)| (*address, Some(*account)))
-            .chain(self.destroyed_accounts.iter().map(|address| (*address, None)))
-            .sorted_by_key(|entry| *entry.0)
+    /// Changes
+    pub fn changes(&self) -> &Vec<(B256, Option<Account>)> {
+        &self.changes
     }
 }
 
 /// Sorted hashed storage optimized for iterating during state trie calculation.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct HashedStorageSorted {
-    /// Sorted hashed storage slots with non-zero value.
-    pub(crate) non_zero_valued_slots: Vec<(B256, U256)>,
-    /// Slots that have been zero valued.
-    pub(crate) zero_valued_slots: B256HashSet,
     /// Flag indicating whether the storage was wiped or not.
     pub(crate) wiped: bool,
+    /// Sorted changes
+    pub(crate) changes: Vec<(B256, Option<U256>)>,
 }
 
 impl HashedStorageSorted {
@@ -333,13 +313,9 @@ impl HashedStorageSorted {
         self.wiped
     }
 
-    /// Returns a sorted iterator over updated storage slots.
-    pub fn storage_slots_sorted(&self) -> impl Iterator<Item = (B256, U256)> {
-        self.non_zero_valued_slots
-            .iter()
-            .map(|(hashed_slot, value)| (*hashed_slot, *value))
-            .chain(self.zero_valued_slots.iter().map(|hashed_slot| (*hashed_slot, U256::ZERO)))
-            .sorted_by_key(|entry| *entry.0)
+    /// Changes
+    pub fn changes(&self) -> &Vec<(B256, Option<U256>)> {
+        &self.changes
     }
 }
 
