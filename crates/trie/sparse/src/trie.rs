@@ -1441,7 +1441,7 @@ mod tests {
         nibbles
     }
 
-    /// Convert changed_nodes to updated_nodes
+    /// Convert `changed_nodes` to `updated_nodes`
     fn to_updated_nodes(
         changed_nodes: HashMap<Nibbles, Option<BranchNodeCompact>>,
     ) -> HashMap<Nibbles, BranchNodeCompact> {

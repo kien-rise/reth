@@ -2255,7 +2255,7 @@ impl<TX: DbTxMut + DbTx + 'static, N: NodeTypes> TrieWriter for DatabaseProvider
         let mut num_entries = 0;
 
         // Sort trie node updates.
-        let mut account_updates = Vec::from_iter(trie_updates.changed_nodes_ref().iter());
+        let mut account_updates: Vec<_> = trie_updates.changed_nodes_ref().iter().collect();
         account_updates.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
         let tx = self.tx_ref();
