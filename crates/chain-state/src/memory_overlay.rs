@@ -57,8 +57,8 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
             let mut trie_state = MemoryOverlayTrieState::default();
             let t = std::time::Instant::now();
 
-            rayon::scope(|s| {
-                s.spawn(|_| {
+            rayon::scope_fifo(|s| {
+                s.spawn_fifo(|_| {
                     let t = std::time::Instant::now();
                     trie_state.nodes.storage_tries.reserve(
                         self.in_memory.iter().map(|block| block.trie.storage_tries.len()).sum(),
@@ -75,7 +75,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                     }
                     println!("trie_state | trie_state.nodes.storage_tries | {:?}", t.elapsed().as_micros());
                 });
-                s.spawn(|_| {
+                s.spawn_fifo(|_| {
                     let t = std::time::Instant::now();
                     trie_state.nodes.changed_nodes.reserve(
                         self.in_memory.iter().map(|block| block.trie.changed_nodes.len()).sum(),
@@ -87,7 +87,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                     }
                     println!("trie_state | trie_state.nodes.changed_nodes | {:?}", t.elapsed().as_micros());
                 });
-                s.spawn(|_| {
+                s.spawn_fifo(|_| {
                     let t = std::time::Instant::now();
                     trie_state.state.accounts.reserve(
                         self.in_memory.iter().map(|block| block.hashed_state.accounts.len()).sum(),
@@ -100,7 +100,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                     }
                     println!("trie_state | trie_state.state.accounts | {:?}", t.elapsed().as_micros());
                 });
-                s.spawn(|_| {
+                s.spawn_fifo(|_| {
                     let t = std::time::Instant::now();
                     trie_state.state.storages.reserve(
                         self.in_memory.iter().map(|block| block.hashed_state.storages.len()).sum(),
@@ -120,7 +120,7 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
                     println!("trie_state | trie_state.state.storages | {:?}", t.elapsed().as_micros());
                 })
             });
-            println!("trie_state | trie_state | {:?}", t.elapsed().as_micros());
+            println!("trie_state | trie_state | t = {:?} | self.in_memory.len() = {:?}", t.elapsed().as_micros(), self.in_memory.len());
 
             trie_state
         })
