@@ -67,7 +67,9 @@ impl TrieUpdates {
     }
 
     fn extend_common(&mut self, other: &Self) {
-        self.account_nodes.retain(|nibbles, _| !other.removed_nodes.contains(nibbles));
+        for k in other.removed_nodes.iter() {
+            self.account_nodes.remove(k);
+        }
     }
 
     /// Insert storage updates for a given hashed address.
@@ -199,7 +201,9 @@ impl StorageTrieUpdates {
             self.removed_nodes.clear();
         }
         self.is_deleted |= other.is_deleted;
-        self.storage_nodes.retain(|nibbles, _| !other.removed_nodes.contains(nibbles));
+        for k in other.removed_nodes.iter() {
+            self.storage_nodes.remove(k);
+        }
     }
 
     /// Finalize storage trie updates for by taking updates from walker and hash builder.
