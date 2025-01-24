@@ -28,6 +28,8 @@ pub struct MemoryOverlayStateProviderRef<'a, N: NodePrimitives = reth_primitives
     pub(crate) trie_state: OnceLock<MemoryOverlayTrieState>,
 }
 
+static COUNTER: std::sync::OnceLock<std::sync::atomic::AtomicUsize> = std::sync::OnceLock::new();
+
 /// A state provider that stores references to in-memory blocks along with their state as well as
 /// the historical state provider for fallback lookups.
 pub type MemoryOverlayStateProvider<N> = MemoryOverlayStateProviderRef<'static, N>;
@@ -52,10 +54,122 @@ impl<'a, N: NodePrimitives> MemoryOverlayStateProviderRef<'a, N> {
     /// Return lazy-loaded trie state aggregated from in-memory blocks.
     fn trie_state(&self) -> &MemoryOverlayTrieState {
         self.trie_state.get_or_init(|| {
+            let count = COUNTER.get_or_init(|| Default::default());
+            let count = count.fetch_add(1, std::sync::atomic::Ordering::Acquire) + 1;
+            let should_log = count.count_ones() <= 3;
+
             let mut trie_state = MemoryOverlayTrieState::default();
             for block in self.in_memory.iter().rev() {
                 trie_state.state.extend_ref(block.hashed_state.as_ref());
                 trie_state.nodes.extend_ref(block.trie.as_ref());
+
+                if should_log {
+                    println!(
+                        "trie_state.state.accounts.len(): {:?}",
+                        trie_state.state.accounts.len()
+                    );
+                    println!(
+                        "trie_state.state.storages.len(): {:?}",
+                        trie_state.state.storages.len()
+                    );
+                    println!(
+                        "trie_state.state.storages.<...>.sum(): {:?}",
+                        trie_state
+                            .state
+                            .storages
+                            .iter()
+                            .map(|(_k, v)| v.storage.len())
+                            .sum::<usize>()
+                    );
+                    println!(
+                        "trie_state.nodes.changed_nodes.len(): {:?}",
+                        trie_state.nodes.changed_nodes.len()
+                    );
+                    println!(
+                        "trie_state.nodes.storage_tries.len(): {:?}",
+                        trie_state.nodes.storage_tries.len()
+                    );
+                    println!(
+                        "trie_state.nodes.storage_tries.<...is_some()...>.sum(): {:?}",
+                        trie_state
+                            .nodes
+                            .storage_tries
+                            .iter()
+                            .map(|(_k, v)| v
+                                .changed_nodes
+                                .iter()
+                                .filter(|(_k, v)| v.is_some())
+                                .count())
+                            .sum::<usize>()
+                    );
+                    println!(
+                        "trie_state.nodes.storage_tries.<...is_none()...>.sum(): {:?}",
+                        trie_state
+                            .nodes
+                            .storage_tries
+                            .iter()
+                            .map(|(_k, v)| v
+                                .changed_nodes
+                                .iter()
+                                .filter(|(_k, v)| v.is_none())
+                                .count())
+                            .sum::<usize>()
+                    );
+
+                    println!(
+                        "num_updated_accounts: {:?}",
+                        block.hashed_state.accounts.iter().filter(|(_k, v)| v.is_some()).count()
+                    );
+                    println!(
+                        "num_removed_accounts: {:?}",
+                        block.hashed_state.accounts.iter().filter(|(_k, v)| v.is_none()).count()
+                    );
+                    println!("num_storages: {:?}", block.hashed_state.storages.len(),);
+                    println!(
+                        "total_num_changes: {:?}",
+                        block
+                            .hashed_state
+                            .storages
+                            .iter()
+                            .map(|(_k, v)| v.storage.len())
+                            .sum::<usize>(),
+                    );
+                    println!(
+                        "num_updated_nodes: {:?}",
+                        block.trie.changed_nodes.iter().filter(|(_k, v)| v.is_some()).count()
+                    );
+                    println!(
+                        "num_removed_nodes: {:?}",
+                        block.trie.changed_nodes.iter().filter(|(_k, v)| v.is_none()).count()
+                    );
+                    println!("num_storage_tries: {:?}", block.trie.storage_tries.len());
+                    println!(
+                        "total_num_updated_nodes: {:?}",
+                        block
+                            .trie
+                            .storage_tries
+                            .iter()
+                            .map(|(_k, v)| v
+                                .changed_nodes
+                                .iter()
+                                .filter(|(_k, v)| v.is_some())
+                                .count())
+                            .sum::<usize>()
+                    );
+                    println!(
+                        "total_num_removed_nodes: {:?}",
+                        block
+                            .trie
+                            .storage_tries
+                            .iter()
+                            .map(|(_k, v)| v
+                                .changed_nodes
+                                .iter()
+                                .filter(|(_k, v)| v.is_none())
+                                .count())
+                            .sum::<usize>()
+                    );
+                }
             }
             trie_state
         })
