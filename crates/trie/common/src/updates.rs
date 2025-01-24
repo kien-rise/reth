@@ -48,6 +48,9 @@ impl TrieUpdates {
         self.account_nodes.extend(exclude_empty_from_pair(other.account_nodes));
         self.removed_nodes.extend(exclude_empty(other.removed_nodes));
         for (hashed_address, storage_trie) in other.storage_tries {
+            if storage_trie.is_empty() {
+                continue;
+            }
             self.storage_tries.entry(hashed_address).or_default().extend(storage_trie);
         }
     }
@@ -62,6 +65,9 @@ impl TrieUpdates {
         ));
         self.removed_nodes.extend(exclude_empty(other.removed_nodes.iter().cloned()));
         for (hashed_address, storage_trie) in &other.storage_tries {
+            if storage_trie.is_empty() {
+                continue;
+            }
             self.storage_tries.entry(*hashed_address).or_default().extend_ref(storage_trie);
         }
     }
