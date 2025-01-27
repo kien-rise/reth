@@ -5,6 +5,31 @@ use alloy_primitives::{
     B256,
 };
 
+static LOGS: std::sync::OnceLock<(
+    dashmap::DashMap<String, usize>,
+    std::sync::atomic::AtomicUsize,
+)> = std::sync::OnceLock::new();
+
+fn log(text: &str) {
+    let (logs, count) = LOGS.get_or_init(|| Default::default());
+    let mut entry = logs.entry(String::from(text)).or_default();
+    *entry.value_mut() += 1;
+    drop(entry);
+    let count = count.fetch_add(1, std::sync::atomic::Ordering::Acquire) + 1;
+    if count.is_power_of_two() {
+        println!("count = {}", count);
+        for entry in logs.iter() {
+            println!("{:10} {}", entry.value(), entry.key());
+        }
+    }
+}
+
+macro_rules! log {
+    ($($arg:tt)*) => {
+        log(&format!($($arg)*));
+    };
+}
+
 /// The aggregation of trie updates.
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
 #[cfg_attr(any(test, feature = "serde"), derive(serde::Serialize, serde::Deserialize))]
@@ -77,7 +102,10 @@ impl TrieUpdates {
         storage_updates: StorageTrieUpdates,
     ) {
         if storage_updates.is_empty() {
+            log!("storage_updates.is_empty() = true");
             return;
+        } else {
+            log!("storage_updates.is_empty() = false");
         }
         let existing = self.storage_tries.insert(hashed_address, storage_updates);
         debug_assert!(existing.is_none());

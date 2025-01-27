@@ -14,6 +14,31 @@ use reth_trie_common::KeyHasher;
 use revm::db::{states::CacheAccount, AccountStatus, BundleAccount};
 use std::borrow::Cow;
 
+static LOGS: std::sync::OnceLock<(
+    dashmap::DashMap<String, usize>,
+    std::sync::atomic::AtomicUsize,
+)> = std::sync::OnceLock::new();
+
+fn log(text: &str) {
+    let (logs, count) = LOGS.get_or_init(|| Default::default());
+    let mut entry = logs.entry(String::from(text)).or_default();
+    *entry.value_mut() += 1;
+    drop(entry);
+    let count = count.fetch_add(1, std::sync::atomic::Ordering::Acquire) + 1;
+    if count.is_power_of_two() {
+        println!("count = {}", count);
+        for entry in logs.iter() {
+            println!("{:10} {}", entry.value(), entry.key());
+        }
+    }
+}
+
+macro_rules! log {
+    ($($arg:tt)*) => {
+        log(&format!($($arg)*));
+    };
+}
+
 /// Representation of in-memory hashed state.
 #[derive(PartialEq, Eq, Clone, Default, Debug)]
 pub struct HashedPostState {
@@ -49,6 +74,9 @@ impl HashedPostState {
             accounts.insert(address, account);
             if !storage.is_empty() {
                 storages.insert(address, storage);
+                log!("storage.is_empty() = false");
+            } else {
+                log!("storage.is_empty() = true");
             }
         }
         Self { accounts, storages }
