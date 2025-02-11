@@ -51,6 +51,12 @@ use revm_primitives::{
 #[debug(bound(DB::Error: Debug))]
 pub struct OpEvm<'a, EXT, DB: Database>(revm::Evm<'a, EXT, DB>);
 
+impl<'a, EXT, DB: Database> From<OpEvm<'a, EXT, DB>> for reth_revm::Evm<'a, EXT, DB> {
+    fn from(value: OpEvm<'a, EXT, DB>) -> Self {
+        value.0
+    }
+}
+
 impl<EXT, DB: Database> Evm for OpEvm<'_, EXT, DB> {
     type DB = DB;
     type Tx = TxEnv;
