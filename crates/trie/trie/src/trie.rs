@@ -194,7 +194,9 @@ where
             match node {
                 TrieElement::Branch(node) => {
                     tracker.inc_branch();
-                    hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
+                    if hash_builder.key < node.key || hash_builder.key.is_empty() {
+                        hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
+                    }
                 }
                 TrieElement::Leaf(hashed_address, account) => {
                     tracker.inc_leaf();
@@ -235,7 +237,11 @@ where
                     account_rlp.clear();
                     let account = account.into_trie_account(storage_root);
                     account.encode(&mut account_rlp as &mut dyn BufMut);
-                    hash_builder.add_leaf(Nibbles::unpack(hashed_address), &account_rlp);
+
+                    let leaf_key = Nibbles::unpack(hashed_address);
+                    if hash_builder.key < leaf_key || hash_builder.key.is_empty() {
+                        hash_builder.add_leaf(leaf_key, &account_rlp);
+                    }
 
                     // Decide if we need to return intermediate progress.
                     let total_updates_len = updated_storage_nodes +
@@ -257,7 +263,7 @@ where
                             Box::new(state),
                             hashed_entries_walked,
                             trie_updates,
-                        ))
+                        ));
                     }
                 }
             }
@@ -411,7 +417,7 @@ where
 
         // short circuit on empty storage
         if hashed_storage_cursor.is_storage_empty()? {
-            return Ok((EMPTY_ROOT_HASH, 0, StorageTrieUpdates::deleted()))
+            return Ok((EMPTY_ROOT_HASH, 0, StorageTrieUpdates::deleted()));
         }
 
         let mut tracker = TrieTracker::default();

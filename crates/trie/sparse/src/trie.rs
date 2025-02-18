@@ -1609,7 +1609,7 @@ mod tests {
 
         let mut trie_updates = TrieUpdates::default();
         let removed_keys = node_iter.walker.take_removed_keys();
-        trie_updates.finalize(hash_builder, removed_keys, destroyed_accounts);
+        trie_updates.finalize(hash_builder, removed_keys, &destroyed_accounts);
 
         (root, trie_updates, proof_nodes, branch_node_hash_masks, branch_node_tree_masks)
     }
