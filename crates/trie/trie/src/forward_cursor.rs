@@ -25,7 +25,7 @@ impl<'a, K, V> ForwardInMemoryCursor<'a, K, V> {
     }
 
     #[cfg(test)]
-    fn peek(&mut self) -> Option<&(K, V)> {
+    fn peek(&self) -> Option<&(K, V)> {
         self.entries.get(self.index)
     }
 }

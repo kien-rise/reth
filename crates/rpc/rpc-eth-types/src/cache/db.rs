@@ -50,8 +50,15 @@ impl reth_storage_api::StateRootProvider for StateProviderTraitObjWrapper<'_> {
         self.0.state_root_from_nodes_with_updates(input)
     }
 
-    fn get_resolved_trie_input(&self, input: reth_trie::TrieInput) -> ProviderResult<reth_trie::TrieInput> {
+    fn get_resolved_trie_input(
+        &self,
+        input: reth_trie::TrieInput,
+    ) -> ProviderResult<reth_trie::TrieInput> {
         self.0.get_resolved_trie_input(input)
+    }
+
+    fn database_tx_ref(&self) -> Option<&reth_db::mdbx::tx::Tx<reth_db::mdbx::RO>> {
+        self.0.database_tx_ref()
     }
 }
 
