@@ -1,4 +1,5 @@
 use alloy_primitives::{map::B256Map, Address, Bytes, B256};
+use reth_db::mdbx::{tx::Tx, RO};
 use reth_storage_errors::provider::ProviderResult;
 use reth_trie::{
     updates::{StorageTrieUpdates, TrieUpdates},
@@ -39,6 +40,9 @@ pub trait StateRootProvider: Send + Sync {
 
     /// Gets the final `TrieInput` for the state root calculation.
     fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput>;
+
+    /// Get database_tx_ref
+    fn database_tx_ref(&self) -> Option<&Tx<RO>>;
 }
 
 /// A type that can compute the storage root for a given account.

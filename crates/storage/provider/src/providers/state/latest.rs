@@ -3,7 +3,7 @@ use crate::{
     HashedPostStateProvider, StateProvider, StateRootProvider,
 };
 use alloy_primitives::{map::B256Map, Address, BlockNumber, Bytes, StorageKey, StorageValue, B256};
-use reth_db::tables;
+use reth_db::{mdbx::{tx::Tx, RO}, tables};
 use reth_db_api::{cursor::DbDupCursorRO, transaction::DbTx};
 use reth_primitives::{Account, Bytecode};
 use reth_storage_api::{
@@ -92,6 +92,11 @@ impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
 
     fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
         Ok(input)
+    }
+
+    fn database_tx_ref(&self) -> Option<&Tx<RO>> {
+        let tx: &dyn std::any::Any = self.tx();
+        tx.downcast_ref::<Tx<RO>>()
     }
 }
 
@@ -216,6 +221,40 @@ impl<Provider: StateCommitmentProvider> StateCommitmentProvider for LatestStateP
 
 // Delegates all provider impls to [LatestStateProviderRef]
 delegate_provider_impls!(LatestStateProvider<Provider> where [Provider: DBProvider + BlockHashReader + StateCommitmentProvider]);
+
+impl<Provider: DBProvider + StateCommitmentProvider> StateRootProvider
+    for LatestStateProvider<Provider>
+{
+    fn state_root(&self, hashed_state: HashedPostState) -> ProviderResult<B256> {
+        self.as_ref().state_root(hashed_state)
+    }
+    fn state_root_from_nodes(&self, input: TrieInput) -> ProviderResult<B256> {
+        self.as_ref().state_root_from_nodes(input)
+    }
+
+    fn state_root_with_updates(
+        &self,
+        hashed_state: HashedPostState,
+    ) -> ProviderResult<(B256, TrieUpdates)> {
+        self.as_ref().state_root_with_updates(hashed_state)
+    }
+
+    fn state_root_from_nodes_with_updates(
+        &self,
+        input: TrieInput,
+    ) -> ProviderResult<(B256, TrieUpdates)> {
+        self.as_ref().state_root_from_nodes_with_updates(input)
+    }
+
+    fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+        self.as_ref().get_resolved_trie_input(input)
+    }
+
+    fn database_tx_ref(&self) -> Option<&Tx<RO>> {
+        let tx: &dyn std::any::Any = self.0.tx_ref();
+        tx.downcast_ref::<Tx<RO>>()
+    }
+}
 
 #[cfg(test)]
 mod tests {

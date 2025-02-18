@@ -6684,6 +6684,7 @@ dependencies = [
  "pin-project",
  "rand 0.8.5",
  "reth-chainspec",
+ "reth-db",
  "reth-errors",
  "reth-execution-types",
  "reth-metrics",
@@ -8928,6 +8929,7 @@ version = "1.2.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
+ "reth-db",
  "reth-ethereum-forks",
  "reth-primitives-traits",
  "reth-storage-api",
@@ -9201,6 +9203,7 @@ dependencies = [
  "rand 0.8.5",
  "reth-chain-state",
  "reth-chainspec",
+ "reth-db",
  "reth-errors",
  "reth-evm",
  "reth-execution-types",
