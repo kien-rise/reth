@@ -202,7 +202,7 @@ where
         let root = hash_builder.root();
 
         let removed_keys = account_node_iter.walker.take_removed_keys();
-        trie_updates.finalize(hash_builder, removed_keys, prefix_sets.destroyed_accounts);
+        trie_updates.finalize(hash_builder, removed_keys, &prefix_sets.destroyed_accounts);
 
         let stats = tracker.finish();
 

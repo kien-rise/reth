@@ -88,7 +88,7 @@ impl TrieUpdates {
         &mut self,
         hash_builder: HashBuilder,
         removed_keys: HashSet<Nibbles>,
-        destroyed_accounts: B256Set,
+        destroyed_accounts: &B256Set,
     ) {
         // Retrieve updated nodes from hash builder.
         let (_, updated_nodes) = hash_builder.split();
@@ -98,7 +98,7 @@ impl TrieUpdates {
         self.removed_nodes.extend(exclude_empty(removed_keys));
 
         // Add deleted storage tries for destroyed accounts.
-        for destroyed in destroyed_accounts {
+        for destroyed in destroyed_accounts.iter().copied() {
             self.storage_tries.entry(destroyed).or_default().set_deleted(true);
         }
     }

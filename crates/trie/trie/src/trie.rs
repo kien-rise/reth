@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     hashed_cursor::{HashedCursorFactory, HashedStorageCursor},
     node_iter::{TrieElement, TrieNodeIter},
@@ -26,7 +28,7 @@ pub struct StateRoot<T, H> {
     /// The factory for hashed cursors.
     pub hashed_cursor_factory: H,
     /// A set of prefix sets that have changed.
-    pub prefix_sets: TriePrefixSets,
+    pub prefix_sets: Arc<TriePrefixSets>,
     /// Previous intermediate state.
     previous_state: Option<IntermediateStateRootState>,
     /// The number of updates after which the intermediate progress should be returned.
@@ -46,7 +48,7 @@ impl<T, H> StateRoot<T, H> {
         Self {
             trie_cursor_factory,
             hashed_cursor_factory,
-            prefix_sets: TriePrefixSets::default(),
+            prefix_sets: Arc::default(),
             previous_state: None,
             threshold: 100_000,
             #[cfg(feature = "metrics")]
@@ -56,6 +58,12 @@ impl<T, H> StateRoot<T, H> {
 
     /// Set the prefix sets.
     pub fn with_prefix_sets(mut self, prefix_sets: TriePrefixSets) -> Self {
+        self.prefix_sets = Arc::new(prefix_sets);
+        self
+    }
+
+    /// Set the prefix sets.
+    pub fn with_prefix_sets_arced(mut self, prefix_sets: Arc<TriePrefixSets>) -> Self {
         self.prefix_sets = prefix_sets;
         self
     }
@@ -162,7 +170,7 @@ where
                 let walker = TrieWalker::from_stack(
                     trie_cursor,
                     state.walker_stack,
-                    self.prefix_sets.account_prefix_set,
+                    self.prefix_sets.account_prefix_set.clone(),
                 )
                 .with_deletions_retained(retain_updates);
                 let node_iter = TrieNodeIter::new(walker, hashed_account_cursor)
@@ -171,8 +179,9 @@ where
             }
             None => {
                 let hash_builder = HashBuilder::default().with_updates(retain_updates);
-                let walker = TrieWalker::new(trie_cursor, self.prefix_sets.account_prefix_set)
-                    .with_deletions_retained(retain_updates);
+                let walker =
+                    TrieWalker::new(trie_cursor, self.prefix_sets.account_prefix_set.clone())
+                        .with_deletions_retained(retain_updates);
                 let node_iter = TrieNodeIter::new(walker, hashed_account_cursor);
                 (hash_builder, node_iter)
             }
@@ -257,7 +266,7 @@ where
         let root = hash_builder.root();
 
         let removed_keys = account_node_iter.walker.take_removed_keys();
-        trie_updates.finalize(hash_builder, removed_keys, self.prefix_sets.destroyed_accounts);
+        trie_updates.finalize(hash_builder, removed_keys, &self.prefix_sets.destroyed_accounts);
 
         let stats = tracker.finish();
 
