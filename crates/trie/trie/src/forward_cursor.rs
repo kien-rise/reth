@@ -1,3 +1,27 @@
+static LOGS: std::sync::OnceLock<(
+    dashmap::DashMap<String, usize>,
+    std::sync::atomic::AtomicUsize,
+)> = std::sync::OnceLock::new();
+
+fn log(text: &str) {
+    let (logs, count) = LOGS.get_or_init(|| Default::default());
+    let mut entry = logs.entry(String::from(text)).or_default();
+    *entry.value_mut() += 1;
+    drop(entry);
+    let count = count.fetch_add(1, std::sync::atomic::Ordering::Acquire) + 1;
+    if count.is_power_of_two() {
+        println!("count = {}", count);
+        for entry in logs.iter() {
+            println!("{:10} {}", entry.value(), entry.key());
+        }
+    }
+}
+
+macro_rules! log {
+    ($($arg:tt)*) => {
+        log(&format!($($arg)*));
+    };
+}
 /// The implementation of forward-only in memory cursor over the entries.
 /// The cursor operates under the assumption that the supplied collection is pre-sorted.
 #[derive(Debug)]
@@ -28,6 +52,8 @@ where
 {
     /// Advances the cursor until the predicate satisfies or EOF.
     fn find(&mut self, ok: impl Fn(&K) -> bool) {
+        let initial = self.index;
+
         let mut expected = self.index;
         while self.entries.get(expected).is_some_and(|(k, _)| !ok(k)) {
             expected += 1;
@@ -46,6 +72,7 @@ where
         }
 
         assert_eq!(expected, self.index);
+        log!("distance = {:?}", self.index - initial);
     }
 
     /// Returns the first entry from the current cursor position that's greater or equal to the
