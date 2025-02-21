@@ -26,26 +26,39 @@ where
     K: PartialOrd + Clone,
     V: Clone,
 {
-    /// Advances the cursor forward while `comparator` returns `true` or until the collection is
-    /// exhausted. Returns the first entry for which `comparator` returns `false` or `None`.
-    fn advance_while_false(&mut self, comparator: impl Fn(&K) -> bool) -> Option<(K, V)> {
-        let mut entry = self.entries.get(self.index);
-        while entry.is_some_and(|entry| comparator(&entry.0)) {
-            self.index += 1;
-            entry = self.entries.get(self.index);
+    /// Advances the cursor until the predicate satisfies or EOF.
+    fn find(&mut self, ok: impl Fn(&K) -> bool) {
+        let mut expected = self.index;
+        while self.entries.get(expected).is_some_and(|(k, _)| !ok(k)) {
+            expected += 1;
         }
-        entry.cloned()
+
+        let mut step = 1usize;
+        let mut halving = false;
+        while step > 0 {
+            if self.entries.get(self.index + step - 1).is_some_and(|(k, _)| !ok(k)) {
+                self.index += step;
+                step = if halving { step / 2 } else { step * 2 };
+            } else {
+                halving = true;
+                step /= 2;
+            }
+        }
+
+        assert_eq!(expected, self.index);
     }
 
     /// Returns the first entry from the current cursor position that's greater or equal to the
     /// provided key. This method advances the cursor forward.
     pub fn seek(&mut self, key: &K) -> Option<(K, V)> {
-        self.advance_while_false(|k| k < key)
+        self.find(|k| k >= key);
+        self.entries.get(self.index).cloned()
     }
 
     /// Returns the first entry from the current cursor position that's greater than the provided
     /// key. This method advances the cursor forward.
-    pub fn first_after(&mut self, key: &K) -> Option<(K, V)> {
-        self.advance_while_false(|k| k <= key)
+    pub fn next(&mut self, key: &K) -> Option<(K, V)> {
+        self.find(|k| k > key);
+        self.entries.get(self.index).cloned()
     }
 }
