@@ -4,8 +4,9 @@
 #[derive(Debug)]
 pub struct ForwardInMemoryCursor<'a, K, V> {
     /// The reference to the pre-sorted collection of entries.
-    entries: std::slice::Iter<'a, (K, V)>,
-    is_empty: bool,
+    entries: &'a [(K, V)],
+    /// The index where cursor is currently positioned.
+    index: usize,
 }
 
 impl<'a, K, V> ForwardInMemoryCursor<'a, K, V> {
@@ -13,24 +14,19 @@ impl<'a, K, V> ForwardInMemoryCursor<'a, K, V> {
     ///
     /// The cursor expects all of the entries have been sorted in advance.
     #[inline]
-    pub fn new(entries: &'a [(K, V)]) -> Self {
-        Self { entries: entries.iter(), is_empty: entries.is_empty() }
+    pub const fn new(entries: &'a [(K, V)]) -> Self {
+        Self { entries, index: 0 }
     }
 
     /// Returns `true` if the cursor is empty, regardless of its position.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.is_empty
+        self.entries.is_empty()
     }
 
-    #[inline]
-    fn peek(&self) -> Option<&(K, V)> {
-        self.entries.clone().next()
-    }
-
-    #[inline]
-    fn next(&mut self) -> Option<&(K, V)> {
-        self.entries.next()
+    #[cfg(test)]
+    fn peek(&mut self) -> Option<&(K, V)> {
+        self.entries.get(self.index)
     }
 }
 
@@ -39,34 +35,33 @@ where
     K: PartialOrd + Clone,
     V: Clone,
 {
+    /// Advances the cursor until the predicate satisfies or EOF.
+    fn find(&mut self, ok: impl Fn(&K) -> bool) {
+        let mut step = 1usize;
+        let mut halving = false;
+        while step > 0 {
+            if self.entries.get(self.index + step - 1).is_some_and(|(k, _)| !ok(k)) {
+                self.index += step;
+                step = if halving { step / 2 } else { step * 2 };
+            } else {
+                halving = true;
+                step /= 2;
+            }
+        }
+    }
+
     /// Returns the first entry from the current cursor position that's greater or equal to the
     /// provided key. This method advances the cursor forward.
     pub fn seek(&mut self, key: &K) -> Option<(K, V)> {
-        self.advance_while(|k| k < key)
+        self.find(|k| k >= key);
+        self.entries.get(self.index).cloned()
     }
 
     /// Returns the first entry from the current cursor position that's greater than the provided
     /// key. This method advances the cursor forward.
-    pub fn first_after(&mut self, key: &K) -> Option<(K, V)> {
-        self.advance_while(|k| k <= key)
-    }
-
-    /// Advances the cursor forward while `predicate` returns `true` or until the collection is
-    /// exhausted.
-    ///
-    /// Returns the first entry for which `predicate` returns `false` or `None`. The cursor will
-    /// point to the returned entry.
-    fn advance_while(&mut self, predicate: impl Fn(&K) -> bool) -> Option<(K, V)> {
-        let mut entry;
-        loop {
-            entry = self.peek();
-            if entry.is_some_and(|(k, _)| predicate(k)) {
-                self.next();
-            } else {
-                break;
-            }
-        }
-        entry.cloned()
+    pub fn next(&mut self, key: &K) -> Option<(K, V)> {
+        self.find(|k| k > key);
+        self.entries.get(self.index).cloned()
     }
 }
 

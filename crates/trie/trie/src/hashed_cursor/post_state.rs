@@ -96,7 +96,7 @@ where
 
     fn next_inner(&mut self, last_account: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
         // Take the next account from the post state with the key greater than the last sought key.
-        let post_state_entry = self.post_state_cursor.first_after(&last_account);
+        let post_state_entry = self.post_state_cursor.next(&last_account);
 
         // If post state was given precedence or account was cleared, move the cursor forward.
         let mut db_entry = self.cursor.seek(last_account)?;
@@ -232,8 +232,7 @@ where
     /// Find the storage entry that is right after current cursor position.
     fn next_inner(&mut self, last_slot: B256) -> Result<Option<(B256, U256)>, DatabaseError> {
         // Attempt to find the account's storage in post state.
-        let post_state_entry =
-            self.post_state_cursor.as_mut().and_then(|c| c.first_after(&last_slot));
+        let post_state_entry = self.post_state_cursor.as_mut().and_then(|c| c.next(&last_slot));
 
         // Return post state entry immediately if database was wiped.
         if self.storage_wiped {
