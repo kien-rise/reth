@@ -36,6 +36,10 @@ where
     fn find(&mut self, ok: impl Fn(&K) -> bool) {
         let mut step = 1usize;
         let mut halving = false;
+
+        // We do this to make it more tolerant for debugging.
+        self.index = self.index.saturating_sub(16);
+
         while step > 0 {
             if self.entries.get(self.index + step - 1).is_some_and(|(k, _)| !ok(k)) {
                 self.index += step;
