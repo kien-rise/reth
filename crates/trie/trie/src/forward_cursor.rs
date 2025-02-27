@@ -1,3 +1,7 @@
+use std::hash::Hash;
+
+use alloy_primitives::map::HashSet;
+
 /// The implementation of forward-only in memory cursor over the entries.
 ///
 /// The cursor operates under the assumption that the supplied collection is pre-sorted.
@@ -6,17 +10,29 @@ pub struct ForwardInMemoryCursor<'a, K, V> {
     /// The reference to the pre-sorted collection of entries.
     entries: std::slice::Iter<'a, (K, V)>,
     is_empty: bool,
+    /// List of removed keys
+    removed_keys: HashSet<K>,
 }
 
-impl<'a, K, V> ForwardInMemoryCursor<'a, K, V> {
+impl<'a, K: Eq + Hash, V> ForwardInMemoryCursor<'a, K, V> {
     /// Create new forward cursor positioned at the beginning of the collection.
     ///
     /// The cursor expects all of the entries have been sorted in advance.
-    #[inline]
-    pub fn new(entries: &'a [(K, V)]) -> Self {
-        Self { entries: entries.iter(), is_empty: entries.is_empty() }
+    pub fn new(entries: &'a [(K, V)], removed_keys: impl IntoIterator<Item = K>) -> Self {
+        Self {
+            entries: entries.iter(),
+            is_empty: entries.is_empty(),
+            removed_keys: HashSet::from_iter(removed_keys),
+        }
     }
 
+    /// Is key removed.
+    pub fn is_removed(&self, key: &K) -> bool {
+        self.removed_keys.contains(key)
+    }
+}
+
+impl<'a, K, V> ForwardInMemoryCursor<'a, K, V> {
     /// Returns `true` if the cursor is empty, regardless of its position.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -76,7 +92,8 @@ mod tests {
 
     #[test]
     fn test_cursor() {
-        let mut cursor = ForwardInMemoryCursor::new(&[(1, ()), (2, ()), (3, ()), (4, ()), (5, ())]);
+        let mut cursor =
+            ForwardInMemoryCursor::new(&[(1, ()), (2, ()), (3, ()), (4, ()), (5, ())], []);
 
         assert_eq!(cursor.seek(&0), Some((1, ())));
         assert_eq!(cursor.peek(), Some(&(1, ())));

@@ -15,6 +15,7 @@ workspace = true
 # reth
 reth-primitives-traits.workspace = true
 reth-storage-errors.workspace = true
+reth-db = { workspace = true, optional = true }
 reth-storage-api.workspace = true
 reth-trie = { workspace = true, optional = true }
 
@@ -47,6 +48,7 @@ std = [
 ]
 witness = ["dep:reth-trie"]
 test-utils = [
+    "dep:reth-db",
     "dep:reth-trie",
     "reth-primitives-traits/test-utils",
     "reth-trie?/test-utils",

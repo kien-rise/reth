@@ -1,6 +1,6 @@
 use super::{HashedCursor, HashedCursorFactory, HashedStorageCursor};
 use crate::forward_cursor::ForwardInMemoryCursor;
-use alloy_primitives::{map::B256Set, B256, U256};
+use alloy_primitives::{B256, U256};
 use reth_primitives_traits::Account;
 use reth_storage_errors::db::DatabaseError;
 use reth_trie_common::{HashedAccountsSorted, HashedPostStateSorted, HashedStorageSorted};
@@ -45,8 +45,6 @@ pub struct HashedPostStateAccountCursor<'a, C> {
     cursor: C,
     /// Forward-only in-memory cursor over accounts.
     post_state_cursor: ForwardInMemoryCursor<'a, B256, Account>,
-    /// Reference to the collection of account keys that were destroyed.
-    destroyed_accounts: &'a B256Set,
     /// The last hashed account that was returned by the cursor.
     /// De facto, this is a current cursor position.
     last_account: Option<B256>,
@@ -58,9 +56,11 @@ where
 {
     /// Create new instance of [`HashedPostStateAccountCursor`].
     pub fn new(cursor: C, post_state_accounts: &'a HashedAccountsSorted) -> Self {
-        let post_state_cursor = ForwardInMemoryCursor::new(&post_state_accounts.accounts);
-        let destroyed_accounts = &post_state_accounts.destroyed_accounts;
-        Self { cursor, post_state_cursor, destroyed_accounts, last_account: None }
+        let post_state_cursor = ForwardInMemoryCursor::new(
+            &post_state_accounts.accounts,
+            post_state_accounts.destroyed_accounts.iter().cloned(),
+        );
+        Self { cursor, post_state_cursor, last_account: None }
     }
 
     /// Returns `true` if the account has been destroyed.
@@ -69,7 +69,7 @@ where
     /// This function only checks the post state, not the database, because the latter does not
     /// store destroyed accounts.
     fn is_account_cleared(&self, account: &B256) -> bool {
-        self.destroyed_accounts.contains(account)
+        self.post_state_cursor.is_removed(account)
     }
 
     fn seek_inner(&mut self, key: B256) -> Result<Option<(B256, Account)>, DatabaseError> {
@@ -179,8 +179,6 @@ pub struct HashedPostStateStorageCursor<'a, C> {
     cursor: C,
     /// Forward-only in-memory cursor over non zero-valued account storage slots.
     post_state_cursor: Option<ForwardInMemoryCursor<'a, B256, U256>>,
-    /// Reference to the collection of storage slot keys that were cleared.
-    cleared_slots: Option<&'a B256Set>,
     /// Flag indicating whether database storage was wiped.
     storage_wiped: bool,
     /// The last slot that has been returned by the cursor.
@@ -194,17 +192,20 @@ where
 {
     /// Create new instance of [`HashedPostStateStorageCursor`] for the given hashed address.
     pub fn new(cursor: C, post_state_storage: Option<&'a HashedStorageSorted>) -> Self {
-        let post_state_cursor =
-            post_state_storage.map(|s| ForwardInMemoryCursor::new(&s.non_zero_valued_slots));
-        let cleared_slots = post_state_storage.map(|s| &s.zero_valued_slots);
+        let post_state_cursor = post_state_storage.map(|s| {
+            ForwardInMemoryCursor::new(
+                &s.non_zero_valued_slots,
+                s.zero_valued_slots.iter().cloned(),
+            )
+        });
         let storage_wiped = post_state_storage.is_some_and(|s| s.wiped);
-        Self { cursor, post_state_cursor, cleared_slots, storage_wiped, last_slot: None }
+        Self { cursor, post_state_cursor, storage_wiped, last_slot: None }
     }
 
     /// Check if the slot was zeroed out in the post state.
     /// The database is not checked since it already has no zero-valued slots.
     fn is_slot_zero_valued(&self, slot: &B256) -> bool {
-        self.cleared_slots.is_some_and(|s| s.contains(slot))
+        self.post_state_cursor.as_ref().is_some_and(|s| s.is_removed(slot))
     }
 
     /// Find the storage entry in post state or database that's greater or equal to provided subkey.
