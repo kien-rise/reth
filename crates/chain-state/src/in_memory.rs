@@ -946,6 +946,7 @@ mod tests {
     use alloy_eips::eip7685::Requests;
     use alloy_primitives::{map::B256Map, Address, BlockNumber, Bytes, StorageKey, StorageValue};
     use rand::Rng;
+    use reth_db::mdbx::{tx::Tx, RO};
     use reth_errors::ProviderResult;
     use reth_primitives::{Account, Bytecode, EthPrimitives, Receipt};
     use reth_storage_api::{
@@ -1045,6 +1046,14 @@ mod tests {
             _input: TrieInput,
         ) -> ProviderResult<(B256, TrieUpdates)> {
             Ok((B256::random(), TrieUpdates::default()))
+        }
+
+        fn get_resolved_trie_input(&self, input: TrieInput) -> ProviderResult<TrieInput> {
+            Ok(input)
+        }
+
+        fn database_tx_ref(&self) -> Option<&Tx<RO>> {
+            None
         }
     }
 

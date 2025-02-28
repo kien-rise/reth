@@ -111,6 +111,16 @@ impl<SP: StateProvider, EDP: ExecutionDataProvider> StateRootProvider
         input.prepend(self.hashed_post_state(bundle_state));
         self.state_provider.state_root_from_nodes_with_updates(input)
     }
+
+    fn get_resolved_trie_input(&self, mut input: TrieInput) -> ProviderResult<TrieInput> {
+        let bundle_state = self.block_execution_data_provider.execution_outcome().state();
+        input.prepend(self.hashed_post_state(bundle_state));
+        self.state_provider.get_resolved_trie_input(input)
+    }
+
+    fn database_tx_ref(&self) -> Option<&reth_db::mdbx::tx::Tx<reth_db::mdbx::RO>> {
+        self.state_provider.database_tx_ref()
+    }
 }
 
 impl<SP: StateProvider, EDP: ExecutionDataProvider> StorageRootProvider
