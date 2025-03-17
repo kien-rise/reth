@@ -896,7 +896,7 @@ where
     /// See also <https://github.com/ethereum/execution-apis/blob/3d627c95a4d3510a8187dd02e0250ecb4331d27e/src/engine/paris.md#engine_newpayloadv1>
     /// Caution: This should not accept the `withdrawals` field
     async fn new_payload_v1(&self, payload: ExecutionPayloadV1) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV1");
         let payload =
             ExecutionData { payload: payload.into(), sidecar: ExecutionPayloadSidecar::none() };
         Ok(self.new_payload_v1_metered(payload).await?)
@@ -905,7 +905,7 @@ where
     /// Handler for `engine_newPayloadV2`
     /// See also <https://github.com/ethereum/execution-apis/blob/584905270d8ad665718058060267061ecfd79ca5/src/engine/shanghai.md#engine_newpayloadv2>
     async fn new_payload_v2(&self, payload: ExecutionPayloadInputV2) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV2");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV2");
         let payload = ExecutionData {
             payload: payload.into_payload(),
             sidecar: ExecutionPayloadSidecar::none(),
@@ -922,7 +922,7 @@ where
         versioned_hashes: Vec<B256>,
         parent_beacon_block_root: B256,
     ) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV3");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV3");
         let payload = ExecutionData {
             payload: payload.into(),
             sidecar: ExecutionPayloadSidecar::v3(CancunPayloadFields {
@@ -943,7 +943,7 @@ where
         parent_beacon_block_root: B256,
         execution_requests: Requests,
     ) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV4");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV4");
         let payload = ExecutionData {
             payload: payload.into(),
             sidecar: ExecutionPayloadSidecar::v4(
@@ -964,7 +964,7 @@ where
         fork_choice_state: ForkchoiceState,
         payload_attributes: Option<EngineT::PayloadAttributes>,
     ) -> RpcResult<ForkchoiceUpdated> {
-        trace!(target: "rpc::engine", "Serving engine_forkchoiceUpdatedV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_forkchoiceUpdatedV1");
         Ok(self.fork_choice_updated_v1_metered(fork_choice_state, payload_attributes).await?)
     }
 
@@ -975,7 +975,7 @@ where
         fork_choice_state: ForkchoiceState,
         payload_attributes: Option<EngineT::PayloadAttributes>,
     ) -> RpcResult<ForkchoiceUpdated> {
-        trace!(target: "rpc::engine", "Serving engine_forkchoiceUpdatedV2");
+        tracing::debug!(target: "rpc::engine", "Serving engine_forkchoiceUpdatedV2");
         Ok(self.fork_choice_updated_v2_metered(fork_choice_state, payload_attributes).await?)
     }
 
@@ -987,7 +987,7 @@ where
         fork_choice_state: ForkchoiceState,
         payload_attributes: Option<EngineT::PayloadAttributes>,
     ) -> RpcResult<ForkchoiceUpdated> {
-        trace!(target: "rpc::engine", "Serving engine_forkchoiceUpdatedV3");
+        tracing::debug!(target: "rpc::engine", "Serving engine_forkchoiceUpdatedV3");
         Ok(self.fork_choice_updated_v3_metered(fork_choice_state, payload_attributes).await?)
     }
 
@@ -1006,7 +1006,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> RpcResult<EngineT::ExecutionPayloadEnvelopeV1> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getPayloadV1");
         Ok(self.get_payload_v1_metered(payload_id).await?)
     }
 
@@ -1023,7 +1023,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> RpcResult<EngineT::ExecutionPayloadEnvelopeV2> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadV2");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getPayloadV2");
         Ok(self.get_payload_v2_metered(payload_id).await?)
     }
 
@@ -1040,7 +1040,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> RpcResult<EngineT::ExecutionPayloadEnvelopeV3> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadV3");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getPayloadV3");
         Ok(self.get_payload_v3_metered(payload_id).await?)
     }
 
@@ -1057,7 +1057,7 @@ where
         &self,
         payload_id: PayloadId,
     ) -> RpcResult<EngineT::ExecutionPayloadEnvelopeV4> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadV4");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getPayloadV4");
         Ok(self.get_payload_v4_metered(payload_id).await?)
     }
 
@@ -1067,7 +1067,7 @@ where
         &self,
         block_hashes: Vec<BlockHash>,
     ) -> RpcResult<ExecutionPayloadBodiesV1> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadBodiesByHashV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getPayloadBodiesByHashV1");
         Ok(self.get_payload_bodies_by_hash_v1_metered(block_hashes).await?)
     }
 
@@ -1092,7 +1092,7 @@ where
         start: U64,
         count: U64,
     ) -> RpcResult<ExecutionPayloadBodiesV1> {
-        trace!(target: "rpc::engine", "Serving engine_getPayloadBodiesByRangeV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getPayloadBodiesByRangeV1");
         Ok(self.get_payload_bodies_by_range_v1_metered(start.to(), count.to()).await?)
     }
 
@@ -1102,7 +1102,7 @@ where
         &self,
         config: TransitionConfiguration,
     ) -> RpcResult<TransitionConfiguration> {
-        trace!(target: "rpc::engine", "Serving engine_exchangeTransitionConfigurationV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_exchangeTransitionConfigurationV1");
         Ok(self.exchange_transition_configuration_metered(config)?)
     }
 
@@ -1113,7 +1113,7 @@ where
         &self,
         client: ClientVersionV1,
     ) -> RpcResult<Vec<ClientVersionV1>> {
-        trace!(target: "rpc::engine", "Serving engine_getClientVersionV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getClientVersionV1");
         Ok(Self::get_client_version_v1(self, client)?)
     }
 
@@ -1127,7 +1127,7 @@ where
         &self,
         versioned_hashes: Vec<B256>,
     ) -> RpcResult<Vec<Option<BlobAndProofV1>>> {
-        trace!(target: "rpc::engine", "Serving engine_getBlobsV1");
+        tracing::debug!(target: "rpc::engine", "Serving engine_getBlobsV1");
         Ok(self.get_blobs_v1_metered(versioned_hashes)?)
     }
 }

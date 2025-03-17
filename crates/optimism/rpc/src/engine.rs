@@ -231,7 +231,7 @@ where
     ChainSpec: EthereumHardforks + Send + Sync + 'static,
 {
     async fn new_payload_v2(&self, payload: ExecutionPayloadInputV2) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV2");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV2");
         let payload = OpExecutionData::v2(payload);
         Ok(self.inner.new_payload_v2_metered(payload).await?)
     }
@@ -242,7 +242,7 @@ where
         versioned_hashes: Vec<B256>,
         parent_beacon_block_root: B256,
     ) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV3");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV3");
         let payload = OpExecutionData::v3(payload, versioned_hashes, parent_beacon_block_root);
 
         Ok(self.inner.new_payload_v3_metered(payload).await?)
@@ -255,7 +255,7 @@ where
         parent_beacon_block_root: B256,
         execution_requests: Requests,
     ) -> RpcResult<PayloadStatus> {
-        trace!(target: "rpc::engine", "Serving engine_newPayloadV4");
+        tracing::debug!(target: "rpc::engine", "Serving engine_newPayloadV4");
         let payload = OpExecutionData::v4(
             payload,
             versioned_hashes,
