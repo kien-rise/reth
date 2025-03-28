@@ -6,7 +6,7 @@ use alloy_primitives::{hex, U256};
 use op_revm::{L1BlockInfo, OpSpecId};
 use reth_execution_errors::BlockExecutionError;
 use reth_optimism_forks::OpHardforks;
-use reth_primitives_traits::BlockBody;
+use reth_primitives_traits::{BlockBody, SignedTransaction};
 
 /// The function selector of the "setL1BlockValuesEcotone" function in the `L1Block` contract.
 const L1_BLOCK_ECOTONE_SELECTOR: [u8; 4] = hex!("440a5e20");
@@ -17,6 +17,31 @@ const L1_BLOCK_ISTHMUS_SELECTOR: [u8; 4] = hex!("098999be");
 /// The function selector of the "setL1BlockValuesInterop" function in the `L1Block` contract.
 const L1_BLOCK_INTEROP_SELECTOR: [u8; 4] = hex!("760ee04d");
 
+fn is_l1_info_deposit_transaction(tx: &impl SignedTransaction) -> bool {
+    use revm_primitives::address;
+
+    let from = match tx.recover_signer() {
+        Ok(from) => from,
+        Err(err) => {
+            tracing::warn!("is_l1_info_deposit_transaction | recover_signer | err={:?}", err);
+            return false;
+        }
+    };
+    let Some(to) = tx.to() else {
+        tracing::warn!("is_l1_info_deposit_transaction | recover_signer | tx.to()={:?}", tx.to());
+        return false;
+    };
+    if from != address!("deaddeaddeaddeaddeaddeaddeaddeaddead0001") {
+        tracing::warn!("is_l1_info_deposit_transaction | from={:?}", from);
+        return false;
+    }
+    if to != address!("4200000000000000000000000000000000000015") {
+        tracing::warn!("is_l1_info_deposit_transaction | to={:?}", to);
+        return false;
+    }
+    true
+}
+
 /// Extracts the [`L1BlockInfo`] from the L2 block. The L1 info transaction is always the first
 /// transaction in the L2 block.
 ///
@@ -26,6 +51,12 @@ pub fn extract_l1_info<B: BlockBody>(body: &B) -> Result<L1BlockInfo, OpBlockExe
         .transactions()
         .first()
         .ok_or(OpBlockExecutionError::L1BlockInfo(L1BlockInfoError::MissingTransaction))?;
+
+    tracing::warn!("extract_l1_info | l1_info_tx={:?}", l1_info_tx);
+    if !is_l1_info_deposit_transaction(l1_info_tx) {
+        return Err(OpBlockExecutionError::L1BlockInfo(L1BlockInfoError::MissingTransaction));
+    }
+
     extract_l1_info_from_tx(l1_info_tx)
 }
 
