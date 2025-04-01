@@ -1,7 +1,8 @@
 //! Async caching support for eth RPC
 
 use super::{EthStateCacheConfig, MultiConsumerLruCache};
-use alloy_eips::BlockHashOrNumber;
+use alloy_consensus::BlockHeader;
+use alloy_eips::{BlockHashOrNumber, Typed2718};
 use alloy_primitives::B256;
 use futures::{future::Either, Stream, StreamExt};
 use reth_chain_state::CanonStateNotification;
@@ -153,6 +154,30 @@ impl<B: Block, R: Send + Sync> EthStateCache<B, R> {
         rx.await.map_err(|_| ProviderError::CacheServiceUnavailable)?
     }
 
+    /// Finds nearest parent block (or the block itself) that contain L1 info
+    pub async fn get_latest_block_with_l1_info(
+        &self,
+        mut block_hash: B256,
+    ) -> ProviderResult<Option<Arc<RecoveredBlock<B>>>> {
+        loop {
+            let (response_tx, rx) = oneshot::channel();
+            let _ =
+                self.to_service.send(CacheAction::GetBlockWithSenders { block_hash, response_tx });
+            let block_result = rx.await.map_err(|_| ProviderError::CacheServiceUnavailable)?;
+            match block_result? {
+                Some(block) => {
+                    let first_tx = block.transactions_recovered().next();
+                    if first_tx.is_some_and(|tx| tx.is_type(0x7e)) { // TODO: RISE: insufficient condition
+                        return Ok(Some(block))
+                    } else {
+                        block_hash = block.parent_hash();
+                    }
+                }
+                None => return Ok(None),
+            }
+        }
+    }
+
     /// Requests the receipts for the block hash
     ///
     /// Returns `None` if the block was not found.
@@ -168,6 +193,19 @@ impl<B: Block, R: Send + Sync> EthStateCache<B, R> {
         block_hash: B256,
     ) -> ProviderResult<Option<(Arc<RecoveredBlock<B>>, Arc<Vec<R>>)>> {
         let block = self.get_recovered_block(block_hash);
+        let receipts = self.get_receipts(block_hash);
+
+        let (block, receipts) = futures::try_join!(block, receipts)?;
+
+        Ok(block.zip(receipts))
+    }
+
+    /// Fetches receipts and the nearest parent block (or itself) that contain the L1 info
+    pub async fn get_block_with_l1_info_and_receipts(
+        &self,
+        block_hash: B256,
+    ) -> ProviderResult<Option<(Arc<RecoveredBlock<B>>, Arc<Vec<R>>)>> {
+        let block = self.get_latest_block_with_l1_info(block_hash);
         let receipts = self.get_receipts(block_hash);
 
         let (block, receipts) = futures::try_join!(block, receipts)?;

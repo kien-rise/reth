@@ -33,7 +33,7 @@ where
             .inner
             .eth_api
             .cache()
-            .get_block_and_receipts(meta.block_hash)
+            .get_block_with_l1_info_and_receipts(meta.block_hash)
             .await
             .map_err(Self::Error::from_eth_err)?
             .ok_or(Self::Error::from_eth_err(EthApiError::HeaderNotFound(
