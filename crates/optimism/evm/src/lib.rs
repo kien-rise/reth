@@ -43,7 +43,7 @@ pub use receipts::*;
 mod build;
 pub use build::OpBlockAssembler;
 
-mod error;
+pub mod error;
 pub use error::OpBlockExecutionError;
 
 pub use alloy_op_evm::{OpBlockExecutorFactory, OpEvm, OpEvmFactory};

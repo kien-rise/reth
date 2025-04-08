@@ -2,17 +2,33 @@
 
 use crate::{error::L1BlockInfoError, revm_spec_by_timestamp_after_bedrock, OpBlockExecutionError};
 use alloy_consensus::Transaction;
-use alloy_primitives::{hex, U256};
+use alloy_primitives::{address, hex, Address, U256};
+use op_alloy_consensus::DEPOSIT_TX_TYPE_ID;
 use op_revm::L1BlockInfo;
 use reth_execution_errors::BlockExecutionError;
 use reth_optimism_forks::OpHardforks;
-use reth_primitives_traits::BlockBody;
+use reth_primitives_traits::{BlockBody, SignedTransaction};
 
 /// The function selector of the "setL1BlockValuesEcotone" function in the `L1Block` contract.
 const L1_BLOCK_ECOTONE_SELECTOR: [u8; 4] = hex!("440a5e20");
 
 /// The function selector of the "setL1BlockValuesIsthmus" function in the `L1Block` contract.
 const L1_BLOCK_ISTHMUS_SELECTOR: [u8; 4] = hex!("098999be");
+
+/// The address of the L1 Block contract
+/// [[source](https://github.com/alloy-rs/op-alloy/blob/4ef0caefc436d9dec643bbdc61d116de99bc748d/crates/protocol/src/info/variant.rs#L19-L23)]
+const L1_BLOCK_ADDRESS: Address = address!("4200000000000000000000000000000000000015");
+
+/// The depositor address of the L1 info transaction
+/// [[source](https://github.com/alloy-rs/op-alloy/blob/4ef0caefc436d9dec643bbdc61d116de99bc748d/crates/protocol/src/info/variant.rs#L19-L23)]
+const L1_INFO_DEPOSITOR_ADDRESS: Address = address!("deaddeaddeaddeaddeaddeaddeaddeaddead0001");
+
+/// Checks if tx is a L1 info deposit transaction
+pub fn is_l1_info_tx(tx: &impl SignedTransaction) -> bool {
+    tx.ty() == DEPOSIT_TX_TYPE_ID &&
+        tx.recover_signer().is_ok_and(|from| from == L1_INFO_DEPOSITOR_ADDRESS) &&
+        tx.to().is_some_and(|to| to == L1_BLOCK_ADDRESS)
+}
 
 /// Extracts the [`L1BlockInfo`] from the L2 block. The L1 info transaction is always the first
 /// transaction in the L2 block.
@@ -22,6 +38,7 @@ pub fn extract_l1_info<B: BlockBody>(body: &B) -> Result<L1BlockInfo, OpBlockExe
     let l1_info_tx = body
         .transactions()
         .first()
+        .filter(|&tx| is_l1_info_tx(tx))
         .ok_or(OpBlockExecutionError::L1BlockInfo(L1BlockInfoError::MissingTransaction))?;
     extract_l1_info_from_tx(l1_info_tx)
 }
