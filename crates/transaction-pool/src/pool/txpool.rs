@@ -588,7 +588,7 @@ impl<T: TransactionOrdering> TxPool<T> {
         // Update the latest update kind
         self.latest_update_kind = Some(update_kind);
 
-        tracing::info!("on_canonical_state_change | t={:.9}", start_time.elapsed().as_secs_f64());
+        tracing::info!("on_canonical_state_change | t={:.9} | n={} | removed_txs_count={}", start_time.elapsed().as_secs_f64(), mined_transactions.len(), removed_txs_count);
 
         OnNewCanonicalStateOutcome { block_hash, mined: mined_transactions, promoted, discarded }
     }
