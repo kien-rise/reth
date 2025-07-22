@@ -435,7 +435,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns the number of transactions from the pending sub-pool
-    pub(crate) fn pending_transactions_count(&self) -> usize {
+    pub fn pending_transactions_count(&self) -> usize {
         self.pending_pool.len()
     }
 
@@ -468,7 +468,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns the number of transactions in parked pools
-    pub(crate) fn queued_transactions_count(&self) -> usize {
+    pub fn queued_transactions_count(&self) -> usize {
         self.basefee_pool.len() + self.queued_pool.len()
     }
 
@@ -563,6 +563,8 @@ impl<T: TransactionOrdering> TxPool<T> {
         changed_senders: FxHashMap<SenderId, SenderInfo>,
         update_kind: PoolUpdateKind,
     ) -> OnNewCanonicalStateOutcome<T::Transaction> {
+        let start_time = std::time::Instant::now();
+
         // update block info
         let block_hash = block_info.last_seen_block_hash;
         self.all_transactions.set_block_info(block_info);
@@ -585,6 +587,8 @@ impl<T: TransactionOrdering> TxPool<T> {
 
         // Update the latest update kind
         self.latest_update_kind = Some(update_kind);
+
+        tracing::info!("on_canonical_state_change | t={:.9}", start_time.elapsed().as_secs_f64());
 
         OnNewCanonicalStateOutcome { block_hash, mined: mined_transactions, promoted, discarded }
     }
