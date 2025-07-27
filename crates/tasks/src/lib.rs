@@ -582,7 +582,10 @@ impl TaskExecutor {
             .map(drop)
             .in_current_span();
 
-        self.handle.spawn(task)
+        tokio::task::Builder::new()
+            .name(&format!("586:{}", name))
+            .spawn_on(task, &self.handle)
+            .unwrap()
     }
 
     /// This spawns a regular task onto the runtime.
@@ -607,6 +610,7 @@ impl TaskExecutor {
     pub fn spawn_with_graceful_shutdown_signal<F>(
         &self,
         f: impl FnOnce(GracefulShutdown) -> F,
+        name: &str,
     ) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static,
@@ -617,7 +621,10 @@ impl TaskExecutor {
         );
         let fut = f(on_shutdown);
 
-        self.handle.spawn(fut)
+        tokio::task::Builder::new()
+            .name(&format!("623:{}", name))
+            .spawn_on(fut, &self.handle)
+            .unwrap()
     }
 
     /// Sends a request to the `TaskManager` to initiate a graceful shutdown.
@@ -687,6 +694,7 @@ pub trait TaskSpawnerExt: Send + Sync + Unpin + std::fmt::Debug + DynClone {
     fn spawn_with_graceful_shutdown_signal<F>(
         &self,
         f: impl FnOnce(GracefulShutdown) -> F,
+        name: &str,
     ) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static;
@@ -707,11 +715,12 @@ impl TaskSpawnerExt for TaskExecutor {
     fn spawn_with_graceful_shutdown_signal<F>(
         &self,
         f: impl FnOnce(GracefulShutdown) -> F,
+        name: &str,
     ) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        Self::spawn_with_graceful_shutdown_signal(self, f)
+        Self::spawn_with_graceful_shutdown_signal(self, f, &format!("716:{}", name))
     }
 }
 
