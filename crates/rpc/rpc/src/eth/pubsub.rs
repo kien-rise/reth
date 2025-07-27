@@ -225,9 +225,12 @@ where
     ) -> jsonrpsee::core::SubscriptionResult {
         let sink = pending.accept().await?;
         let pubsub = self.clone();
-        self.inner.subscription_task_spawner.spawn(Box::pin(async move {
-            let _ = pubsub.handle_accepted(sink, kind, params).await;
-        }));
+        self.inner.subscription_task_spawner.spawn(
+            Box::pin(async move {
+                let _ = pubsub.handle_accepted(sink, kind, params).await;
+            }),
+            "230",
+        );
 
         Ok(())
     }

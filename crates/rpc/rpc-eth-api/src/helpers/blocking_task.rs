@@ -52,10 +52,13 @@ pub trait SpawnBlocking: EthApiTypes + Clone + Send + Sync + 'static {
     {
         let (tx, rx) = oneshot::channel();
         let this = self.clone();
-        self.io_task_spawner().spawn_blocking(Box::pin(async move {
-            let res = f(this);
-            let _ = tx.send(res);
-        }));
+        self.io_task_spawner().spawn_blocking(
+            Box::pin(async move {
+                let res = f(this);
+                let _ = tx.send(res);
+            }),
+            "58",
+        );
 
         async move { rx.await.map_err(|_| EthApiError::InternalEthError)? }
     }

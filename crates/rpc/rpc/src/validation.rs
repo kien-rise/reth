@@ -498,12 +498,15 @@ where
         let this = self.clone();
         let (tx, rx) = oneshot::channel();
 
-        self.task_spawner.spawn_blocking(Box::pin(async move {
-            let result = Self::validate_builder_submission_v3(&this, request)
-                .await
-                .map_err(ErrorObject::from);
-            let _ = tx.send(result);
-        }));
+        self.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                let result = Self::validate_builder_submission_v3(&this, request)
+                    .await
+                    .map_err(ErrorObject::from);
+                let _ = tx.send(result);
+            }),
+            "506",
+        );
 
         rx.await.map_err(|_| internal_rpc_err("Internal blocking task error"))?
     }
@@ -516,12 +519,15 @@ where
         let this = self.clone();
         let (tx, rx) = oneshot::channel();
 
-        self.task_spawner.spawn_blocking(Box::pin(async move {
-            let result = Self::validate_builder_submission_v4(&this, request)
-                .await
-                .map_err(ErrorObject::from);
-            let _ = tx.send(result);
-        }));
+        self.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                let result = Self::validate_builder_submission_v4(&this, request)
+                    .await
+                    .map_err(ErrorObject::from);
+                let _ = tx.send(result);
+            }),
+            "524",
+        );
 
         rx.await.map_err(|_| internal_rpc_err("Internal blocking task error"))?
     }
@@ -534,12 +540,15 @@ where
         let this = self.clone();
         let (tx, rx) = oneshot::channel();
 
-        self.task_spawner.spawn_blocking(Box::pin(async move {
-            let result = Self::validate_builder_submission_v5(&this, request)
-                .await
-                .map_err(ErrorObject::from);
-            let _ = tx.send(result);
-        }));
+        self.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                let result = Self::validate_builder_submission_v5(&this, request)
+                    .await
+                    .map_err(ErrorObject::from);
+                let _ = tx.send(result);
+            }),
+            "542",
+        );
 
         rx.await.map_err(|_| internal_rpc_err("Internal blocking task error"))?
     }

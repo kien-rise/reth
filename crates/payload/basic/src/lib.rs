@@ -349,14 +349,17 @@ where
         self.metrics.inc_initiated_payload_builds();
         let cached_reads = self.cached_reads.take().unwrap_or_default();
         let builder = self.builder.clone();
-        self.executor.spawn_blocking(Box::pin(async move {
-            // acquire the permit for executing the task
-            let _permit = guard.acquire().await;
-            let args =
-                BuildArguments { cached_reads, config: payload_config, cancel, best_payload };
-            let result = builder.try_build(args);
-            let _ = tx.send(result);
-        }));
+        self.executor.spawn_blocking(
+            Box::pin(async move {
+                // acquire the permit for executing the task
+                let _permit = guard.acquire().await;
+                let args =
+                    BuildArguments { cached_reads, config: payload_config, cancel, best_payload };
+                let result = builder.try_build(args);
+                let _ = tx.send(result);
+            }),
+            "359",
+        );
 
         self.pending_block = Some(PendingPayload { _cancel, payload: rx });
     }
@@ -491,10 +494,13 @@ where
                     let (tx, rx) = oneshot::channel();
                     let config = self.config.clone();
                     let builder = self.builder.clone();
-                    self.executor.spawn_blocking(Box::pin(async move {
-                        let res = builder.build_empty_payload(config);
-                        let _ = tx.send(res);
-                    }));
+                    self.executor.spawn_blocking(
+                        Box::pin(async move {
+                            let res = builder.build_empty_payload(config);
+                            let _ = tx.send(res);
+                        }),
+                        "500",
+                    );
 
                     empty_payload = Some(rx);
                 }
@@ -502,9 +508,12 @@ where
                     debug!(target: "payload_builder", id=%self.config.payload_id(), "racing fallback payload");
                     // race the in progress job with this job
                     let (tx, rx) = oneshot::channel();
-                    self.executor.spawn_blocking(Box::pin(async move {
-                        let _ = tx.send(job());
-                    }));
+                    self.executor.spawn_blocking(
+                        Box::pin(async move {
+                            let _ = tx.send(job());
+                        }),
+                        "513",
+                    );
                     empty_payload = Some(rx);
                 }
             };

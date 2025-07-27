@@ -1073,9 +1073,12 @@ impl<Client> EthTransactionValidatorBuilder<Client> {
         // Spawn validation tasks, they are blocking because they perform db lookups
         for _ in 0..additional_tasks {
             let task = task.clone();
-            tasks.spawn_blocking(Box::pin(async move {
-                task.run().await;
-            }));
+            tasks.spawn_blocking(
+                Box::pin(async move {
+                    task.run().await;
+                }),
+                "1078",
+            );
         }
 
         // we spawn them on critical tasks because validation, especially for EIP-4844 can be quite

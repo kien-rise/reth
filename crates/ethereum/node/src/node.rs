@@ -441,10 +441,13 @@ where
             // it doesn't impact the first block or the first gossiped blob transaction, so we
             // initialize this in the background
             let kzg_settings = validator.validator().kzg_settings().clone();
-            ctx.task_executor().spawn_blocking(async move {
-                let _ = kzg_settings.get();
-                debug!(target: "reth::cli", "Initialized KZG settings");
-            });
+            ctx.task_executor().spawn_blocking(
+                async move {
+                    let _ = kzg_settings.get();
+                    debug!(target: "reth::cli", "Initialized KZG settings");
+                },
+                "447",
+            );
         }
 
         let transaction_pool = TxPoolBuilder::new(ctx)

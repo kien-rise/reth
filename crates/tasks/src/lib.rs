@@ -91,13 +91,13 @@ static GLOBAL_EXECUTOR: OnceLock<TaskExecutor> = OnceLock::new();
 pub trait TaskSpawner: Send + Sync + Unpin + std::fmt::Debug + DynClone {
     /// Spawns the task onto the runtime.
     /// See also [`Handle::spawn`].
-    fn spawn(&self, fut: BoxFuture<'static, ()>) -> JoinHandle<()>;
+    fn spawn(&self, fut: BoxFuture<'static, ()>, name: &str) -> JoinHandle<()>;
 
     /// This spawns a critical task onto the runtime.
     fn spawn_critical(&self, name: &'static str, fut: BoxFuture<'static, ()>) -> JoinHandle<()>;
 
     /// Spawns a blocking task onto the runtime.
-    fn spawn_blocking(&self, fut: BoxFuture<'static, ()>) -> JoinHandle<()>;
+    fn spawn_blocking(&self, fut: BoxFuture<'static, ()>, name: &str) -> JoinHandle<()>;
 
     /// This spawns a critical blocking task onto the runtime.
     fn spawn_critical_blocking(
@@ -122,7 +122,7 @@ impl TokioTaskExecutor {
 }
 
 impl TaskSpawner for TokioTaskExecutor {
-    fn spawn(&self, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
+    fn spawn(&self, fut: BoxFuture<'static, ()>, _name: &str) -> JoinHandle<()> {
         tokio::task::spawn(fut)
     }
 
@@ -130,7 +130,7 @@ impl TaskSpawner for TokioTaskExecutor {
         tokio::task::spawn(fut)
     }
 
-    fn spawn_blocking(&self, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
+    fn spawn_blocking(&self, fut: BoxFuture<'static, ()>, _name: &str) -> JoinHandle<()> {
         tokio::task::spawn_blocking(move || tokio::runtime::Handle::current().block_on(fut))
     }
 
@@ -363,21 +363,31 @@ impl TaskExecutor {
     }
 
     /// Spawns a future on the tokio runtime depending on the [`TaskKind`]
-    fn spawn_on_rt<F>(&self, fut: F, task_kind: TaskKind) -> JoinHandle<()>
+    fn spawn_on_rt<F>(&self, fut: F, task_kind: TaskKind, name: &str) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static,
     {
         match task_kind {
-            TaskKind::Default => self.handle.spawn(fut),
+            TaskKind::Default => {
+                // self.handle.spawn(fut)
+                tokio::task::Builder::new()
+                    .name(&format!("374:{}", name))
+                    .spawn_on(fut, &self.handle)
+                    .unwrap()
+            }
             TaskKind::Blocking => {
                 let handle = self.handle.clone();
-                self.handle.spawn_blocking(move || handle.block_on(fut))
+                // self.handle.spawn_blocking(move || handle.block_on(fut))
+                tokio::task::Builder::new()
+                    .name(&format!("382:{}", name))
+                    .spawn_blocking_on(move || handle.block_on(fut), &self.handle)
+                    .unwrap()
             }
         }
     }
 
     /// Spawns a regular task depending on the given [`TaskKind`]
-    fn spawn_task_as<F>(&self, fut: F, task_kind: TaskKind) -> JoinHandle<()>
+    fn spawn_task_as<F>(&self, fut: F, task_kind: TaskKind, name: &str) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static,
     {
@@ -398,29 +408,29 @@ impl TaskExecutor {
         }
         .in_current_span();
 
-        self.spawn_on_rt(task, task_kind)
+        self.spawn_on_rt(task, task_kind, &format!("411:{}", name))
     }
 
     /// Spawns the task onto the runtime.
     /// The given future resolves as soon as the [Shutdown] signal is received.
     ///
     /// See also [`Handle::spawn`].
-    pub fn spawn<F>(&self, fut: F) -> JoinHandle<()>
+    pub fn spawn<F>(&self, fut: F, name: &str) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        self.spawn_task_as(fut, TaskKind::Default)
+        self.spawn_task_as(fut, TaskKind::Default, &format!("422:{}", name))
     }
 
     /// Spawns a blocking task onto the runtime.
     /// The given future resolves as soon as the [Shutdown] signal is received.
     ///
     /// See also [`Handle::spawn_blocking`].
-    pub fn spawn_blocking<F>(&self, fut: F) -> JoinHandle<()>
+    pub fn spawn_blocking<F>(&self, fut: F, name: &str) -> JoinHandle<()>
     where
         F: Future<Output = ()> + Send + 'static,
     {
-        self.spawn_task_as(fut, TaskKind::Blocking)
+        self.spawn_task_as(fut, TaskKind::Blocking, &format!("433:{}", name))
     }
 
     /// Spawns the task onto the runtime.
@@ -472,7 +482,7 @@ impl TaskExecutor {
             let _ = select(on_shutdown, task).await;
         };
 
-        self.spawn_on_rt(task, task_kind)
+        self.spawn_on_rt(task, task_kind, &format!("485:{}", name))
     }
 
     /// This spawns a critical blocking task onto the runtime.
@@ -631,9 +641,9 @@ impl TaskExecutor {
 }
 
 impl TaskSpawner for TaskExecutor {
-    fn spawn(&self, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
+    fn spawn(&self, fut: BoxFuture<'static, ()>, name: &str) -> JoinHandle<()> {
         self.metrics.inc_regular_tasks();
-        self.spawn(fut)
+        self.spawn(fut, &format!("646:{}", name))
     }
 
     fn spawn_critical(&self, name: &'static str, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
@@ -641,9 +651,9 @@ impl TaskSpawner for TaskExecutor {
         Self::spawn_critical(self, name, fut)
     }
 
-    fn spawn_blocking(&self, fut: BoxFuture<'static, ()>) -> JoinHandle<()> {
+    fn spawn_blocking(&self, fut: BoxFuture<'static, ()>, name: &str) -> JoinHandle<()> {
         self.metrics.inc_regular_tasks();
-        self.spawn_blocking(fut)
+        self.spawn_blocking(fut, &format!("656:{}", name))
     }
 
     fn spawn_critical_blocking(
@@ -787,10 +797,13 @@ mod tests {
 
         let (signal, shutdown) = signal();
 
-        executor.spawn(Box::pin(async move {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            drop(signal);
-        }));
+        executor.spawn(
+            Box::pin(async move {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                drop(signal);
+            }),
+            "803",
+        );
 
         drop(manager);
 

@@ -475,19 +475,22 @@ where
                                 let rate_limiter = this.rate_limiter.clone();
                                 let mut action_sender =
                                     ActionSender::new(CacheKind::Block, block_hash, action_tx);
-                                this.action_task_spawner.spawn_blocking(Box::pin(async move {
-                                    // Acquire permit
-                                    let _permit = rate_limiter.acquire().await;
-                                    // Only look in the database to prevent situations where we
-                                    // looking up the tree is blocking
-                                    let block_sender = provider
-                                        .sealed_block_with_senders(
-                                            BlockHashOrNumber::Hash(block_hash),
-                                            TransactionVariant::WithHash,
-                                        )
-                                        .map(|maybe_block| maybe_block.map(Arc::new));
-                                    action_sender.send_block(block_sender);
-                                }));
+                                this.action_task_spawner.spawn_blocking(
+                                    Box::pin(async move {
+                                        // Acquire permit
+                                        let _permit = rate_limiter.acquire().await;
+                                        // Only look in the database to prevent situations where we
+                                        // looking up the tree is blocking
+                                        let block_sender = provider
+                                            .sealed_block_with_senders(
+                                                BlockHashOrNumber::Hash(block_hash),
+                                                TransactionVariant::WithHash,
+                                            )
+                                            .map(|maybe_block| maybe_block.map(Arc::new));
+                                        action_sender.send_block(block_sender);
+                                    }),
+                                    "490",
+                                );
                             }
                         }
                         CacheAction::GetReceipts { block_hash, response_tx } => {
@@ -504,15 +507,18 @@ where
                                 let rate_limiter = this.rate_limiter.clone();
                                 let mut action_sender =
                                     ActionSender::new(CacheKind::Receipt, block_hash, action_tx);
-                                this.action_task_spawner.spawn_blocking(Box::pin(async move {
-                                    // Acquire permit
-                                    let _permit = rate_limiter.acquire().await;
-                                    let res = provider
-                                        .receipts_by_block(block_hash.into())
-                                        .map(|maybe_receipts| maybe_receipts.map(Arc::new));
+                                this.action_task_spawner.spawn_blocking(
+                                    Box::pin(async move {
+                                        // Acquire permit
+                                        let _permit = rate_limiter.acquire().await;
+                                        let res = provider
+                                            .receipts_by_block(block_hash.into())
+                                            .map(|maybe_receipts| maybe_receipts.map(Arc::new));
 
-                                    action_sender.send_receipts(res);
-                                }));
+                                        action_sender.send_receipts(res);
+                                    }),
+                                    "518",
+                                );
                             }
                         }
                         CacheAction::GetHeader { block_hash, response_tx } => {
@@ -536,16 +542,20 @@ where
                                 let rate_limiter = this.rate_limiter.clone();
                                 let mut action_sender =
                                     ActionSender::new(CacheKind::Header, block_hash, action_tx);
-                                this.action_task_spawner.spawn_blocking(Box::pin(async move {
-                                    // Acquire permit
-                                    let _permit = rate_limiter.acquire().await;
-                                    let header = provider.header(&block_hash).and_then(|header| {
-                                        header.ok_or_else(|| {
-                                            ProviderError::HeaderNotFound(block_hash.into())
-                                        })
-                                    });
-                                    action_sender.send_header(header);
-                                }));
+                                this.action_task_spawner.spawn_blocking(
+                                    Box::pin(async move {
+                                        // Acquire permit
+                                        let _permit = rate_limiter.acquire().await;
+                                        let header =
+                                            provider.header(&block_hash).and_then(|header| {
+                                                header.ok_or_else(|| {
+                                                    ProviderError::HeaderNotFound(block_hash.into())
+                                                })
+                                            });
+                                        action_sender.send_header(header);
+                                    }),
+                                    "554",
+                                );
                             }
                         }
                         CacheAction::ReceiptsResult { block_hash, res } => {

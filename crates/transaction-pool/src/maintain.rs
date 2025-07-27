@@ -223,7 +223,7 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
                 .boxed()
             };
             reload_accounts_fut = rx.fuse();
-            task_spawner.spawn_blocking(fut);
+            task_spawner.spawn_blocking(fut, "226");
         }
 
         // check if we have a new finalized block
@@ -241,7 +241,7 @@ pub async fn maintain_transaction_pool<N, Client, P, St, Tasks>(
                 task_spawner.spawn_blocking(Box::pin(async move {
                     debug!(target: "txpool", finalized_block = %finalized, "cleaning up blob store");
                     pool.cleanup_blobs();
-                }));
+                }), "244");
             }
         }
 

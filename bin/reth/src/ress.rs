@@ -30,11 +30,10 @@ where
     let pending_state = PendingState::default();
 
     // Spawn maintenance task for pending state.
-    task_executor.spawn(maintain_pending_state(
-        engine_events,
-        provider.clone(),
-        pending_state.clone(),
-    ));
+    task_executor.spawn(
+        maintain_pending_state(engine_events, provider.clone(), pending_state.clone()),
+        "37",
+    );
 
     let (tx, mut rx) = mpsc::unbounded_channel();
     let provider = RethRessProtocolProvider::new(
@@ -58,10 +57,13 @@ where
     );
     info!(target: "reth::cli", "Ress subprotocol support enabled");
 
-    task_executor.spawn(async move {
-        while let Some(event) = rx.recv().await {
-            trace!(target: "reth::ress", ?event, "Received ress event");
-        }
-    });
+    task_executor.spawn(
+        async move {
+            while let Some(event) = rx.recv().await {
+                trace!(target: "reth::ress", ?event, "Received ress event");
+            }
+        },
+        "64",
+    );
     Ok(())
 }

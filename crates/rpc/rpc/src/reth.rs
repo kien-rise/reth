@@ -52,10 +52,13 @@ where
         let (tx, rx) = oneshot::channel();
         let this = self.clone();
         let f = c(this);
-        self.inner.task_spawner.spawn_blocking(Box::pin(async move {
-            let res = f.await;
-            let _ = tx.send(res);
-        }));
+        self.inner.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                let res = f.await;
+                let _ = tx.send(res);
+            }),
+            "58",
+        );
         rx.await.map_err(|_| EthApiError::InternalEthError)?
     }
 
@@ -114,9 +117,12 @@ where
     ) -> jsonrpsee::core::SubscriptionResult {
         let sink = pending.accept().await?;
         let stream = self.provider().canonical_state_stream();
-        self.inner.task_spawner.spawn(Box::pin(async move {
-            let _ = pipe_from_stream(sink, stream).await;
-        }));
+        self.inner.task_spawner.spawn(
+            Box::pin(async move {
+                let _ = pipe_from_stream(sink, stream).await;
+            }),
+            "119",
+        );
 
         Ok(())
     }

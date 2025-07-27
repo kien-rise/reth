@@ -559,44 +559,47 @@ where
         let (tx, rx) = oneshot::channel();
         let inner = self.inner.clone();
 
-        self.inner.task_spawner.spawn_blocking(Box::pin(async move {
-            if count > MAX_PAYLOAD_BODIES_LIMIT {
-                tx.send(Err(EngineApiError::PayloadRequestTooLarge { len: count })).ok();
-                return;
-            }
-
-            if start == 0 || count == 0 {
-                tx.send(Err(EngineApiError::InvalidBodiesRange { start, count })).ok();
-                return;
-            }
-
-            let mut result = Vec::with_capacity(count as usize);
-
-            // -1 so range is inclusive
-            let mut end = start.saturating_add(count - 1);
-
-            // > Client software MUST NOT return trailing null values if the request extends past the current latest known block.
-            // truncate the end if it's greater than the last block
-            if let Ok(best_block) = inner.provider.best_block_number() {
-                if end > best_block {
-                    end = best_block;
+        self.inner.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                if count > MAX_PAYLOAD_BODIES_LIMIT {
+                    tx.send(Err(EngineApiError::PayloadRequestTooLarge { len: count })).ok();
+                    return;
                 }
-            }
 
-            for num in start..=end {
-                let block_result = inner.provider.block(BlockHashOrNumber::Number(num));
-                match block_result {
-                    Ok(block) => {
-                        result.push(block.map(&f));
+                if start == 0 || count == 0 {
+                    tx.send(Err(EngineApiError::InvalidBodiesRange { start, count })).ok();
+                    return;
+                }
+
+                let mut result = Vec::with_capacity(count as usize);
+
+                // -1 so range is inclusive
+                let mut end = start.saturating_add(count - 1);
+
+                // > Client software MUST NOT return trailing null values if the request extends past the current latest known block.
+                // truncate the end if it's greater than the last block
+                if let Ok(best_block) = inner.provider.best_block_number() {
+                    if end > best_block {
+                        end = best_block;
                     }
-                    Err(err) => {
-                        tx.send(Err(EngineApiError::Internal(Box::new(err)))).ok();
-                        return;
-                    }
-                };
-            }
-            tx.send(Ok(result)).ok();
-        }));
+                }
+
+                for num in start..=end {
+                    let block_result = inner.provider.block(BlockHashOrNumber::Number(num));
+                    match block_result {
+                        Ok(block) => {
+                            result.push(block.map(&f));
+                        }
+                        Err(err) => {
+                            tx.send(Err(EngineApiError::Internal(Box::new(err)))).ok();
+                            return;
+                        }
+                    };
+                }
+                tx.send(Ok(result)).ok();
+            }),
+            "599",
+        );
 
         rx.await.map_err(|err| EngineApiError::Internal(Box::new(err)))?
     }
@@ -653,22 +656,25 @@ where
         let (tx, rx) = oneshot::channel();
         let inner = self.inner.clone();
 
-        self.inner.task_spawner.spawn_blocking(Box::pin(async move {
-            let mut result = Vec::with_capacity(hashes.len());
-            for hash in hashes {
-                let block_result = inner.provider.block(BlockHashOrNumber::Hash(hash));
-                match block_result {
-                    Ok(block) => {
-                        result.push(block.map(&f));
-                    }
-                    Err(err) => {
-                        let _ = tx.send(Err(EngineApiError::Internal(Box::new(err))));
-                        return;
+        self.inner.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                let mut result = Vec::with_capacity(hashes.len());
+                for hash in hashes {
+                    let block_result = inner.provider.block(BlockHashOrNumber::Hash(hash));
+                    match block_result {
+                        Ok(block) => {
+                            result.push(block.map(&f));
+                        }
+                        Err(err) => {
+                            let _ = tx.send(Err(EngineApiError::Internal(Box::new(err))));
+                            return;
+                        }
                     }
                 }
-            }
-            tx.send(Ok(result)).ok();
-        }));
+                tx.send(Ok(result)).ok();
+            }),
+            "671",
+        );
 
         rx.await.map_err(|err| EngineApiError::Internal(Box::new(err)))?
     }

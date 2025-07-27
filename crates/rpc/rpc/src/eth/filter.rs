@@ -555,11 +555,14 @@ where
 
         let (tx, rx) = oneshot::channel();
         let this = self.clone();
-        self.task_spawner.spawn_blocking(Box::pin(async move {
-            let res =
-                this.get_logs_in_block_range_inner(&filter, from_block, to_block, limits).await;
-            let _ = tx.send(res);
-        }));
+        self.task_spawner.spawn_blocking(
+            Box::pin(async move {
+                let res =
+                    this.get_logs_in_block_range_inner(&filter, from_block, to_block, limits).await;
+                let _ = tx.send(res);
+            }),
+            "562",
+        );
 
         rx.await.map_err(|_| EthFilterError::InternalError)?
     }
