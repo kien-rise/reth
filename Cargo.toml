@@ -511,11 +511,11 @@ alloy-transport-ws = { version = "1.0.23", default-features = false }
 # op
 alloy-op-evm = { version = "0.15", default-features = false }
 alloy-op-hardforks = "0.2.2"
-op-alloy-rpc-types = { version = "0.18.12", default-features = false }
-op-alloy-rpc-types-engine = { version = "0.18.12", default-features = false }
-op-alloy-network = { version = "0.18.12", default-features = false }
-op-alloy-consensus = { version = "0.18.12", default-features = false }
-op-alloy-rpc-jsonrpsee = { version = "0.18.12", default-features = false }
+op-alloy-rpc-types = { git = "https://github.com/kien-rise/op-alloy.git", rev = "941188f425e5d60a3e7de1bb7a82c77623e93fac", default-features = false }
+op-alloy-rpc-types-engine = { git = "https://github.com/kien-rise/op-alloy.git", rev = "941188f425e5d60a3e7de1bb7a82c77623e93fac", default-features = false }
+op-alloy-network = { git = "https://github.com/kien-rise/op-alloy.git", rev = "941188f425e5d60a3e7de1bb7a82c77623e93fac", default-features = false }
+op-alloy-consensus = { git = "https://github.com/kien-rise/op-alloy.git", rev = "941188f425e5d60a3e7de1bb7a82c77623e93fac", default-features = false }
+op-alloy-rpc-jsonrpsee = { git = "https://github.com/kien-rise/op-alloy.git", rev = "941188f425e5d60a3e7de1bb7a82c77623e93fac", default-features = false }
 op-alloy-flz = { version = "0.13.1", default-features = false }
 
 # misc
@@ -609,11 +609,11 @@ discv5 = "0.9"
 if-addrs = "0.13"
 
 # rpc
-jsonrpsee = "0.25.1"
-jsonrpsee-core = "0.25.1"
-jsonrpsee-server = "0.25.1"
-jsonrpsee-http-client = "0.25.1"
-jsonrpsee-types = "0.25.1"
+jsonrpsee = { git = "https://github.com/kien-rise/jsonrpsee.git", rev = "f892b0fab6f902318ad2a030ad3a5229bbde7af4" }
+jsonrpsee-core = { git = "https://github.com/kien-rise/jsonrpsee.git", rev = "f892b0fab6f902318ad2a030ad3a5229bbde7af4" }
+jsonrpsee-server = { git = "https://github.com/kien-rise/jsonrpsee.git", rev = "f892b0fab6f902318ad2a030ad3a5229bbde7af4" }
+jsonrpsee-http-client = { git = "https://github.com/kien-rise/jsonrpsee.git", rev = "f892b0fab6f902318ad2a030ad3a5229bbde7af4" }
+jsonrpsee-types = { git = "https://github.com/kien-rise/jsonrpsee.git", rev = "f892b0fab6f902318ad2a030ad3a5229bbde7af4" }
 
 # http
 http = "1.0"

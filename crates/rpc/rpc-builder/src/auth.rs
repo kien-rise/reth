@@ -100,7 +100,7 @@ impl<RpcMiddleware> AuthServerConfig<RpcMiddleware> {
             .local_addr()
             .map_err(|err| RpcError::server_error(err, ServerKind::Auth(socket_addr)))?;
 
-        let handle = server.start(module.inner.clone());
+        let handle = server.start(module.inner.clone(), "103");
 
         let ipc_handle = if let Some(ipc_server_config) = ipc_server_config {
             let ipc_endpoint_str = ipc_endpoint

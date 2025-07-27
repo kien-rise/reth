@@ -271,7 +271,7 @@ dependencies = [
  "alloy-sol-types",
  "auto_impl",
  "derive_more",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "op-revm",
  "revm",
  "thiserror 2.0.12",
@@ -383,7 +383,7 @@ dependencies = [
  "alloy-op-hardforks",
  "alloy-primitives",
  "auto_impl",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "op-revm",
  "revm",
 ]
@@ -3392,7 +3392,7 @@ dependencies = [
  "eyre",
  "jsonrpsee",
  "modular-bitfield",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-rpc-types",
  "op-alloy-rpc-types-engine",
  "op-revm",
@@ -4971,8 +4971,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fba77a59c4c644fd48732367624d1bcf6f409f9c9a286fbc71d2f1fc0b2ea16"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "jsonrpsee-client-transport",
  "jsonrpsee-core",
@@ -4989,8 +4988,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a320a3f1464e4094f780c4d48413acd786ce5627aaaecfac9e9c7431d13ae1"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "base64 0.22.1",
  "futures-channel",
@@ -5014,8 +5012,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "693c93cbb7db25f4108ed121304b671a36002c2db67dff2ee4391a688c738547"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5042,8 +5039,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6962d2bd295f75e97dd328891e58fce166894b974c1f7ce2e7597f02eeceb791"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "base64 0.22.1",
  "http-body",
@@ -5065,8 +5061,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fa4f5daed39f982a1bb9d15449a28347490ad42b212f8eaa2a2a344a0dce9e9"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "heck",
  "proc-macro-crate",
@@ -5078,8 +5073,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38b0bcf407ac68d241f90e2d46041e6a06988f97fe1721fb80b91c42584fae6"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "futures-util",
  "http",
@@ -5105,8 +5099,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66df7256371c45621b3b7d2fb23aea923d577616b9c0e9c0b950a6ea5c2be0ca"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "http",
  "serde",
@@ -5117,8 +5110,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-wasm-client"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b67695cbcf4653f39f8f8738925547e0e23fd9fe315bccf951097b9f6a38781"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "jsonrpsee-client-transport",
  "jsonrpsee-core",
@@ -5129,8 +5121,7 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.25.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2da2694c9ff271a9d3ebfe520f6b36820e85133a51be77a3cb549fd615095261"
+source = "git+https://github.com/kien-rise/jsonrpsee.git?rev=f892b0fab6f902318ad2a030ad3a5229bbde7af4#f892b0fab6f902318ad2a030ad3a5229bbde7af4"
 dependencies = [
  "http",
  "jsonrpsee-client-transport",
@@ -5984,6 +5975,19 @@ checksum = "eda4af86c3185b06f8d70986a591c087f054c5217cc7ce53cd0ec36dc42d7425"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
+ "alloy-primitives",
+ "alloy-rlp",
+ "derive_more",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "op-alloy-consensus"
+version = "0.18.12"
+source = "git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac#941188f425e5d60a3e7de1bb7a82c77623e93fac"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
  "alloy-network",
  "alloy-primitives",
  "alloy-rlp",
@@ -6005,8 +6009,7 @@ checksum = "a79f352fc3893dcd670172e615afef993a41798a1d3fc0db88a3e60ef2e70ecc"
 [[package]]
 name = "op-alloy-network"
 version = "0.18.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab526485e1aee4dbd929aaa431aaa9db8678c936ee7d1449760f783ae45afa01"
+source = "git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac#941188f425e5d60a3e7de1bb7a82c77623e93fac"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -6014,15 +6017,14 @@ dependencies = [
  "alloy-provider",
  "alloy-rpc-types-eth",
  "alloy-signer",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-rpc-types",
 ]
 
 [[package]]
 name = "op-alloy-rpc-jsonrpsee"
 version = "0.18.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f34feb6c3aef85c9ab9198f1402867030e54d13f6c66dda18235497ac808cb0"
+source = "git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac#941188f425e5d60a3e7de1bb7a82c77623e93fac"
 dependencies = [
  "alloy-primitives",
  "jsonrpsee",
@@ -6031,8 +6033,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types"
 version = "0.18.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98bfe0a4e1225930ffe288a9b3ce0d95c6fc2ee6696132e5ad7ecc7b0ee139a8"
+source = "git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac#941188f425e5d60a3e7de1bb7a82c77623e93fac"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6042,7 +6043,7 @@ dependencies = [
  "alloy-serde",
  "arbitrary",
  "derive_more",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -6051,8 +6052,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types-engine"
 version = "0.18.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a420102c1b857a4ba373fcaf674d5c0499fd3705ddce95be9a69f3561c337b3"
+source = "git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac#941188f425e5d60a3e7de1bb7a82c77623e93fac"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6064,7 +6064,7 @@ dependencies = [
  "derive_more",
  "ethereum_ssz",
  "ethereum_ssz_derive",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "serde",
  "snap",
  "thiserror 2.0.12",
@@ -7239,7 +7239,7 @@ dependencies = [
  "eyre",
  "futures",
  "humantime",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-rpc-types-engine",
  "reqwest",
  "reth-cli-runner",
@@ -7442,7 +7442,7 @@ dependencies = [
  "arbitrary",
  "bytes",
  "modular-bitfield",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "proptest",
  "proptest-arbitrary-interop",
  "reth-codecs-derive",
@@ -9104,7 +9104,7 @@ dependencies = [
  "alloy-primitives",
  "derive_more",
  "miniz_oxide",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-rpc-types",
  "paste",
  "reth-chainspec",
@@ -9131,7 +9131,7 @@ dependencies = [
  "derive_more",
  "eyre",
  "futures-util",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "proptest",
  "reth-chainspec",
  "reth-cli",
@@ -9176,7 +9176,7 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives",
  "alloy-trie",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "reth-chainspec",
  "reth-consensus",
  "reth-consensus-common",
@@ -9209,7 +9209,7 @@ dependencies = [
  "alloy-genesis",
  "alloy-op-evm",
  "alloy-primitives",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-revm",
  "reth-chainspec",
  "reth-evm",
@@ -9250,7 +9250,7 @@ dependencies = [
  "clap",
  "eyre",
  "futures",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-rpc-types-engine",
  "op-revm",
  "reth-chainspec",
@@ -9304,7 +9304,7 @@ dependencies = [
  "alloy-rpc-types-debug",
  "alloy-rpc-types-engine",
  "derive_more",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-rpc-types-engine",
  "reth-basic-payload-builder",
  "reth-chain-state",
@@ -9343,7 +9343,7 @@ dependencies = [
  "bincode 1.3.3",
  "bytes",
  "modular-bitfield",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "proptest",
  "proptest-arbitrary-interop",
  "rand 0.8.5",
@@ -9379,7 +9379,7 @@ dependencies = [
  "jsonrpsee-core",
  "jsonrpsee-types",
  "metrics",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-network",
  "op-alloy-rpc-jsonrpsee",
  "op-alloy-rpc-types",
@@ -9448,7 +9448,7 @@ dependencies = [
  "derive_more",
  "futures-util",
  "metrics",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-flz",
  "op-alloy-rpc-types",
  "op-revm",
@@ -9579,7 +9579,7 @@ dependencies = [
  "derive_more",
  "modular-bitfield",
  "once_cell",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "proptest",
  "proptest-arbitrary-interop",
  "rand 0.8.5",
@@ -9956,7 +9956,7 @@ dependencies = [
  "alloy-rpc-types-eth",
  "alloy-signer",
  "jsonrpsee-types",
- "op-alloy-consensus",
+ "op-alloy-consensus 0.18.12 (git+https://github.com/kien-rise/op-alloy.git?rev=941188f425e5d60a3e7de1bb7a82c77623e93fac)",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-revm",

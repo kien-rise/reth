@@ -1324,7 +1324,7 @@ impl<RpcMiddleware> RpcServerConfig<RpcMiddleware> {
                     RpcError::server_error(err, ServerKind::WsHttp(http_socket_addr))
                 })?;
                 if let Some(module) = modules.http.as_ref().or(modules.ws.as_ref()) {
-                    let handle = server.start(module.clone());
+                    let handle = server.start(module.clone(), "1327");
                     http_handle = Some(handle.clone());
                     ws_handle = Some(handle);
                 }
@@ -1396,10 +1396,11 @@ impl<RpcMiddleware> RpcServerConfig<RpcMiddleware> {
             http_server = Some(server);
         }
 
-        http_handle = http_server
-            .map(|http_server| http_server.start(modules.http.clone().expect("http server error")));
+        http_handle = http_server.map(|http_server| {
+            http_server.start(modules.http.clone().expect("http server error"), "1400")
+        });
         ws_handle = ws_server
-            .map(|ws_server| ws_server.start(modules.ws.clone().expect("ws server error")));
+            .map(|ws_server| ws_server.start(modules.ws.clone().expect("ws server error"), "1402"));
         Ok(RpcServerHandle {
             http_local_addr,
             ws_local_addr,
