@@ -471,7 +471,7 @@ revm-inspectors = "0.27.1"
 alloy-chains = { version = "0.2.5", default-features = false }
 alloy-dyn-abi = "1.3.0"
 alloy-eip2124 = { version = "0.2.0", default-features = false }
-alloy-evm = { version = "0.15", default-features = false }
+alloy-evm = { git = "https://github.com/kien-rise/evm.git", rev = "971c3b52933483a2504c80ec489362baacc003ba", default-features = false }
 alloy-primitives = { version = "1.3.0", default-features = false, features = ["map-foldhash"] }
 alloy-rlp = { version = "0.3.10", default-features = false, features = ["core-net"] }
 alloy-sol-macro = "1.3.0"
