@@ -255,7 +255,7 @@ where
     where
         L: LaunchNode<Self>,
     {
-        launcher.launch_node(self).await
+        launcher.launch_node(self).await // 9
     }
 
     /// Sets the hook that is run once the rpc server is started.

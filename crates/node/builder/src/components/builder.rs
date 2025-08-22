@@ -329,7 +329,7 @@ where
 
         let evm_config = evm_builder.build_evm(context).await?;
         let pool = pool_builder.build_pool(context).await?;
-        let network = network_builder.build_network(context, pool.clone()).await?;
+        let network = network_builder.build_network(context, pool.clone()).await?; // 6
         let payload_builder_handle = payload_builder
             .spawn_payload_builder_service(context, pool.clone(), evm_config.clone())
             .await?;

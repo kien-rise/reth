@@ -114,7 +114,7 @@ impl<Tx, Eth, N: NetworkPrimitives> NetworkBuilder<Tx, Eth, N> {
         let announcement_policy = StrictEthAnnouncementFilter::default();
         let policies = NetworkPolicies::new(propagation_policy, announcement_policy);
 
-        let transactions = TransactionsManager::with_policy(
+        let transactions = TransactionsManager::with_policy( // A
             handle,
             pool,
             rx,

@@ -766,7 +766,7 @@ where
         );
 
         debug!(target: "reth::cli", "creating components");
-        let components = components_builder.build_components(&builder_ctx).await?;
+        let components = components_builder.build_components(&builder_ctx).await?; // 7
 
         let blockchain_db = self.blockchain_db().clone();
 

@@ -655,7 +655,7 @@ where
         EngineNodeLauncher: LaunchNode<NodeBuilderWithComponents<T, CB, AO>>,
     {
         let launcher = self.engine_api_launcher();
-        self.builder.launch_with(launcher).await
+        self.builder.launch_with(launcher).await // 10
     }
 
     /// Launches the node with the [`DebugNodeLauncher`].
@@ -788,7 +788,7 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
             + 'static,
         Node::Provider: BlockReaderFor<N>,
     {
-        self.start_network_with(
+        self.start_network_with( // 4
             builder,
             pool,
             self.config().network.transactions_manager_config(),
@@ -826,8 +826,8 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
             .request_handler(self.provider().clone())
             .split_with_handle();
 
-        println!("Custom backtrace: {}", std::backtrace::Backtrace::force_capture());
-        self.executor.spawn_critical("p2p txpool", Box::pin(txpool));
+        println!("Custom backtrace: {}", std::backtrace::Backtrace::force_capture()); // 3
+        // self.executor.spawn_critical("p2p txpool", Box::pin(txpool));
         self.executor.spawn_critical("p2p eth request handler", Box::pin(eth));
 
         let default_peers_path = self.config().datadir().known_peers();
