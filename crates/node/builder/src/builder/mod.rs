@@ -572,10 +572,10 @@ where
     ///     .extend_rpc_modules(|ctx| {
     ///         // Access node components, so they can used by the CustomApi
     ///         let pool = ctx.pool().clone();
-    ///         
+    ///
     ///         // Add custom RPC namespace
     ///         ctx.modules.merge_configured(CustomApi { pool }.into_rpc())?;
-    ///         
+    ///
     ///         Ok(())
     ///     })
     ///     .build()?;
@@ -826,6 +826,7 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
             .request_handler(self.provider().clone())
             .split_with_handle();
 
+        println!("Custom backtrace: {}", std::backtrace::Backtrace::force_capture());
         self.executor.spawn_critical("p2p txpool", Box::pin(txpool));
         self.executor.spawn_critical("p2p eth request handler", Box::pin(eth));
 
