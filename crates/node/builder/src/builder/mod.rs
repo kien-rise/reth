@@ -828,7 +828,7 @@ impl<Node: FullNodeTypes> BuilderContext<Node> {
 
         println!("Custom backtrace: {}", std::backtrace::Backtrace::force_capture()); // 3
         // self.executor.spawn_critical("p2p txpool", Box::pin(txpool));
-        self.executor.spawn_critical("p2p eth request handler", Box::pin(eth));
+        // self.executor.spawn_critical("p2p eth request handler", Box::pin(eth));
 
         let default_peers_path = self.config().datadir().known_peers();
         let known_peers_file = self.config().network.persistent_peers_file(default_peers_path);
