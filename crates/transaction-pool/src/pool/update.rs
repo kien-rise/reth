@@ -9,18 +9,18 @@ use std::sync::Arc;
 ///
 /// NOTE: this guarantees that `current` and `destination` differ.
 #[derive(Debug)]
-pub(crate) struct PoolUpdate {
+pub struct PoolUpdate {
     /// Internal tx id.
-    pub(crate) id: TransactionId,
+    pub id: TransactionId,
     /// Where the transaction is currently held.
-    pub(crate) current: SubPool,
+    pub current: SubPool,
     /// Where to move the transaction to.
-    pub(crate) destination: Destination,
+    pub destination: Destination,
 }
 
 /// Where to move an existing transaction.
 #[derive(Debug)]
-pub(crate) enum Destination {
+pub enum Destination {
     /// Discard the transaction.
     Discard,
     /// Move transaction to pool
@@ -35,11 +35,11 @@ impl From<SubPool> for Destination {
 
 /// Tracks the result after updating the pool
 #[derive(Debug)]
-pub(crate) struct UpdateOutcome<T: PoolTransaction> {
+pub struct UpdateOutcome<T: PoolTransaction> {
     /// transactions promoted to the pending pool
-    pub(crate) promoted: Vec<Arc<ValidPoolTransaction<T>>>,
+    pub promoted: Vec<Arc<ValidPoolTransaction<T>>>,
     /// transaction that failed and were discarded
-    pub(crate) discarded: Vec<Arc<ValidPoolTransaction<T>>>,
+    pub discarded: Vec<Arc<ValidPoolTransaction<T>>>,
 }
 
 impl<T: PoolTransaction> Default for UpdateOutcome<T> {

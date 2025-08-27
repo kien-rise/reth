@@ -22,10 +22,14 @@ use tracing::debug;
 /// This is a wrapper around [`BestTransactions`] that also enforces a specific basefee.
 ///
 /// This iterator guarantees that all transaction it returns satisfy both the base fee and blob fee!
-pub(crate) struct BestTransactionsWithFees<T: TransactionOrdering> {
-    pub(crate) best: BestTransactions<T>,
-    pub(crate) base_fee: u64,
-    pub(crate) base_fee_per_blob_gas: u64,
+#[derive(Debug)]
+pub struct BestTransactionsWithFees<T: TransactionOrdering> {
+    ///
+    pub best: BestTransactions<T>,
+    ///
+    pub base_fee: u64,
+    ///
+    pub base_fee_per_blob_gas: u64,
 }
 
 impl<T: TransactionOrdering> crate::traits::BestTransactions for BestTransactionsWithFees<T> {
@@ -82,31 +86,31 @@ impl<T: TransactionOrdering> Iterator for BestTransactionsWithFees<T> {
 pub struct BestTransactions<T: TransactionOrdering> {
     /// Contains a copy of _all_ transactions of the pending pool at the point in time this
     /// iterator was created.
-    pub(crate) all: BTreeMap<TransactionId, PendingTransaction<T>>,
+    pub all: BTreeMap<TransactionId, PendingTransaction<T>>,
     /// Transactions that can be executed right away: these have the expected nonce.
     ///
     /// Once an `independent` transaction with the nonce `N` is returned, it unlocks `N+1`, which
     /// then can be moved from the `all` set to the `independent` set.
-    pub(crate) independent: BTreeSet<PendingTransaction<T>>,
+    pub independent: BTreeSet<PendingTransaction<T>>,
     /// There might be the case where a yielded transactions is invalid, this will track it.
-    pub(crate) invalid: HashSet<SenderId>,
+    pub invalid: HashSet<SenderId>,
     /// Used to receive any new pending transactions that have been added to the pool after this
     /// iterator was static filtered
     ///
     /// These new pending transactions are inserted into this iterator's pool before yielding the
     /// next value
-    pub(crate) new_transaction_receiver: Option<Receiver<PendingTransaction<T>>>,
+    pub new_transaction_receiver: Option<Receiver<PendingTransaction<T>>>,
     /// The priority value of most recently yielded transaction.
     ///
     /// This is required if we new pending transactions are fed in while it yields new values.
-    pub(crate) last_priority: Option<Priority<T::PriorityValue>>,
+    pub last_priority: Option<Priority<T::PriorityValue>>,
     /// Flag to control whether to skip blob transactions (EIP4844).
-    pub(crate) skip_blobs: bool,
+    pub skip_blobs: bool,
 }
 
 impl<T: TransactionOrdering> BestTransactions<T> {
     /// Mark the transaction and it's descendants as invalid.
-    pub(crate) fn mark_invalid(
+    pub fn mark_invalid(
         &mut self,
         tx: &Arc<ValidPoolTransaction<T::Transaction>>,
         _kind: InvalidPoolTransactionError,
@@ -118,7 +122,7 @@ impl<T: TransactionOrdering> BestTransactions<T> {
     ///
     /// Note: for a transaction with nonce higher than the current on chain nonce this will always
     /// return an ancestor since all transaction in this pool are gapless.
-    pub(crate) fn ancestor(&self, id: &TransactionId) -> Option<&PendingTransaction<T>> {
+    pub fn ancestor(&self, id: &TransactionId) -> Option<&PendingTransaction<T>> {
         self.all.get(&id.unchecked_ancestor()?)
     }
 
@@ -244,8 +248,10 @@ impl<T: TransactionOrdering> Iterator for BestTransactions<T> {
 /// Filter out transactions are marked as invalid:
 /// [`BestTransactions::mark_invalid`](crate::traits::BestTransactions::mark_invalid).
 pub struct BestTransactionFilter<I, P> {
-    pub(crate) best: I,
-    pub(crate) predicate: P,
+    ///
+    pub best: I,
+    ///
+    pub predicate: P,
 }
 
 impl<I, P> BestTransactionFilter<I, P> {

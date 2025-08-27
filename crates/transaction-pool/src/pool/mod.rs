@@ -113,9 +113,9 @@ mod best;
 mod blob;
 mod listener;
 mod parked;
-pub(crate) mod pending;
-pub(crate) mod size;
-pub(crate) mod state;
+pub mod pending;
+pub mod size;
+pub mod state;
 pub mod txpool;
 mod update;
 
@@ -1082,7 +1082,7 @@ impl<T: PoolTransaction> AddedPendingTransaction<T> {
     ///
     /// If the kind is [`TransactionListenerKind::PropagateOnly`], then only transactions that
     /// are allowed to be propagated are returned.
-    pub(crate) fn pending_transactions(
+    pub fn pending_transactions(
         &self,
         kind: TransactionListenerKind,
     ) -> impl Iterator<Item = B256> + '_ {
@@ -1091,12 +1091,14 @@ impl<T: PoolTransaction> AddedPendingTransaction<T> {
     }
 
     /// Returns if the transaction should be propagated.
-    pub(crate) fn is_propagate_allowed(&self) -> bool {
+    pub fn is_propagate_allowed(&self) -> bool {
         self.transaction.propagate
     }
 }
 
-pub(crate) struct PendingTransactionIter<Iter> {
+///
+#[derive(Debug)]
+pub struct PendingTransactionIter<Iter> {
     kind: TransactionListenerKind,
     iter: Iter,
 }
@@ -1120,7 +1122,8 @@ where
 }
 
 /// An iterator over full pending transactions
-pub(crate) struct FullPendingTransactionIter<Iter> {
+#[derive(Debug)]
+pub struct FullPendingTransactionIter<Iter> {
     kind: TransactionListenerKind,
     iter: Iter,
 }
@@ -1165,7 +1168,7 @@ pub enum AddedTransaction<T: PoolTransaction> {
 
 impl<T: PoolTransaction> AddedTransaction<T> {
     /// Returns whether the transaction has been added to the pending pool.
-    pub(crate) const fn as_pending(&self) -> Option<&AddedPendingTransaction<T>> {
+    pub const fn as_pending(&self) -> Option<&AddedPendingTransaction<T>> {
         match self {
             Self::Pending(tx) => Some(tx),
             _ => None,
@@ -1173,7 +1176,7 @@ impl<T: PoolTransaction> AddedTransaction<T> {
     }
 
     /// Returns the replaced transaction if there was one
-    pub(crate) const fn replaced(&self) -> Option<&Arc<ValidPoolTransaction<T>>> {
+    pub const fn replaced(&self) -> Option<&Arc<ValidPoolTransaction<T>>> {
         match self {
             Self::Pending(tx) => tx.replaced.as_ref(),
             Self::Parked { replaced, .. } => replaced.as_ref(),
@@ -1181,7 +1184,7 @@ impl<T: PoolTransaction> AddedTransaction<T> {
     }
 
     /// Returns the discarded transactions if there were any
-    pub(crate) fn discarded_transactions(&self) -> Option<&[Arc<ValidPoolTransaction<T>>]> {
+    pub fn discarded_transactions(&self) -> Option<&[Arc<ValidPoolTransaction<T>>]> {
         match self {
             Self::Pending(tx) => Some(&tx.discarded),
             Self::Parked { .. } => None,
@@ -1189,12 +1192,12 @@ impl<T: PoolTransaction> AddedTransaction<T> {
     }
 
     /// Returns the hash of the replaced transaction if it is a blob transaction.
-    pub(crate) fn replaced_blob_transaction(&self) -> Option<B256> {
+    pub fn replaced_blob_transaction(&self) -> Option<B256> {
         self.replaced().filter(|tx| tx.transaction.is_eip4844()).map(|tx| *tx.transaction.hash())
     }
 
     /// Returns the hash of the transaction
-    pub(crate) fn hash(&self) -> &TxHash {
+    pub fn hash(&self) -> &TxHash {
         match self {
             Self::Pending(tx) => tx.transaction.hash(),
             Self::Parked { transaction, .. } => transaction.hash(),
@@ -1202,7 +1205,7 @@ impl<T: PoolTransaction> AddedTransaction<T> {
     }
 
     /// Converts this type into the event type for listeners
-    pub(crate) fn into_new_transaction_event(self) -> NewTransactionEvent<T> {
+    pub fn into_new_transaction_event(self) -> NewTransactionEvent<T> {
         match self {
             Self::Pending(tx) => {
                 NewTransactionEvent { subpool: SubPool::Pending, transaction: tx.transaction }
@@ -1214,7 +1217,7 @@ impl<T: PoolTransaction> AddedTransaction<T> {
     }
 
     /// Returns the subpool this transaction was added to
-    pub(crate) const fn subpool(&self) -> SubPool {
+    pub const fn subpool(&self) -> SubPool {
         match self {
             Self::Pending(_) => SubPool::Pending,
             Self::Parked { subpool, .. } => *subpool,
@@ -1223,7 +1226,7 @@ impl<T: PoolTransaction> AddedTransaction<T> {
 
     /// Returns the [`TransactionId`] of the added transaction
     #[cfg(test)]
-    pub(crate) fn id(&self) -> &TransactionId {
+    pub fn id(&self) -> &TransactionId {
         match self {
             Self::Pending(added) => added.transaction.id(),
             Self::Parked { transaction, .. } => transaction.id(),
@@ -1275,15 +1278,15 @@ impl AddedTransactionOutcome {
 
 /// Contains all state changes after a [`CanonicalStateUpdate`] was processed
 #[derive(Debug)]
-pub(crate) struct OnNewCanonicalStateOutcome<T: PoolTransaction> {
+pub struct OnNewCanonicalStateOutcome<T: PoolTransaction> {
     /// Hash of the block.
-    pub(crate) block_hash: B256,
+    pub block_hash: B256,
     /// All mined transactions.
-    pub(crate) mined: Vec<TxHash>,
+    pub mined: Vec<TxHash>,
     /// Transactions promoted to the pending pool.
-    pub(crate) promoted: Vec<Arc<ValidPoolTransaction<T>>>,
+    pub promoted: Vec<Arc<ValidPoolTransaction<T>>>,
     /// transaction that were discarded during the update
-    pub(crate) discarded: Vec<Arc<ValidPoolTransaction<T>>>,
+    pub discarded: Vec<Arc<ValidPoolTransaction<T>>>,
 }
 
 impl<T: PoolTransaction> OnNewCanonicalStateOutcome<T> {
@@ -1292,7 +1295,7 @@ impl<T: PoolTransaction> OnNewCanonicalStateOutcome<T> {
     ///
     /// If the kind is [`TransactionListenerKind::PropagateOnly`], then only transactions that
     /// are allowed to be propagated are returned.
-    pub(crate) fn pending_transactions(
+    pub fn pending_transactions(
         &self,
         kind: TransactionListenerKind,
     ) -> impl Iterator<Item = B256> + '_ {
@@ -1305,7 +1308,7 @@ impl<T: PoolTransaction> OnNewCanonicalStateOutcome<T> {
     ///
     /// If the kind is [`TransactionListenerKind::PropagateOnly`], then only transactions that
     /// are allowed to be propagated are returned.
-    pub(crate) fn full_pending_transactions(
+    pub fn full_pending_transactions(
         &self,
         kind: TransactionListenerKind,
     ) -> impl Iterator<Item = NewTransactionEvent<T>> + '_ {

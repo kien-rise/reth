@@ -1,3 +1,5 @@
+//!
+
 use crate::{
     identifier::{SenderId, TransactionId},
     pool::{
@@ -28,26 +30,26 @@ use tokio::sync::broadcast;
 #[derive(Debug, Clone)]
 pub struct PendingPool<T: TransactionOrdering> {
     /// How to order transactions.
-    ordering: T,
+    pub ordering: T,
     /// Keeps track of transactions inserted in the pool.
     ///
     /// This way we can determine when transactions were submitted to the pool.
-    submission_id: u64,
+    pub submission_id: u64,
     /// _All_ Transactions that are currently inside the pool grouped by their identifier.
-    by_id: BTreeMap<TransactionId, PendingTransaction<T>>,
+    pub by_id: BTreeMap<TransactionId, PendingTransaction<T>>,
     /// The highest nonce transactions for each sender - like the `independent` set, but the
     /// highest instead of lowest nonce.
-    highest_nonces: FxHashMap<SenderId, PendingTransaction<T>>,
+    pub highest_nonces: FxHashMap<SenderId, PendingTransaction<T>>,
     /// Independent transactions that can be included directly and don't require other
     /// transactions.
-    independent_transactions: FxHashMap<SenderId, PendingTransaction<T>>,
+    pub independent_transactions: FxHashMap<SenderId, PendingTransaction<T>>,
     /// Keeps track of the size of this pool.
     ///
     /// See also [`reth_primitives_traits::InMemorySize::size`].
-    size_of: SizeTracker,
+    pub size_of: SizeTracker,
     /// Used to broadcast new transactions that have been added to the `PendingPool` to existing
     /// `static_files` of this pool.
-    new_transaction_notifier: broadcast::Sender<PendingTransaction<T>>,
+    pub new_transaction_notifier: broadcast::Sender<PendingTransaction<T>>,
 }
 
 // === impl PendingPool ===
@@ -115,7 +117,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
     }
 
     /// Same as `best` but only returns transactions that satisfy the given basefee and blobfee.
-    pub(crate) fn best_with_basefee_and_blobfee(
+    pub fn best_with_basefee_and_blobfee(
         &self,
         base_fee: u64,
         base_fee_per_blob_gas: u64,
@@ -133,7 +135,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
     /// # Panics
     ///
     /// if the transaction is already included
-    pub(crate) fn best_with_unlocked_and_attributes(
+    pub fn best_with_unlocked_and_attributes(
         &self,
         unlocked: Vec<Arc<ValidPoolTransaction<T::Transaction>>>,
         base_fee: u64,
@@ -157,7 +159,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
     }
 
     /// Returns an iterator over all transactions in the pool
-    pub(crate) fn all(
+    pub fn all(
         &self,
     ) -> impl ExactSizeIterator<Item = Arc<ValidPoolTransaction<T::Transaction>>> + '_ {
         self.by_id.values().map(|tx| tx.transaction.clone())
@@ -172,7 +174,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
     /// # Returns
     ///
     /// Removed transactions that no longer satisfy the blob fee.
-    pub(crate) fn update_blob_fee(
+    pub fn update_blob_fee(
         &mut self,
         blob_fee: u128,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -214,7 +216,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
     /// # Returns
     ///
     /// Removed transactions that no longer satisfy the base fee.
-    pub(crate) fn update_base_fee(
+    pub fn update_base_fee(
         &mut self,
         base_fee: u64,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -322,7 +324,7 @@ impl<T: TransactionOrdering> PendingPool<T> {
     ///
     /// Note: If the transaction has a descendant transaction
     /// it will advance it to the best queue.
-    pub(crate) fn remove_transaction(
+    pub fn remove_transaction(
         &mut self,
         id: &TransactionId,
     ) -> Option<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -496,38 +498,38 @@ impl<T: TransactionOrdering> PendingPool<T> {
 
     /// Returns true if the pool exceeds the given limit
     #[inline]
-    pub(crate) fn exceeds(&self, limit: &SubPoolLimit) -> bool {
+    pub fn exceeds(&self, limit: &SubPoolLimit) -> bool {
         limit.is_exceeded(self.len(), self.size())
     }
 
     /// The reported size of all transactions in this pool.
-    pub(crate) fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.size_of.into()
     }
 
     /// Number of transactions in the entire pool
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.by_id.len()
     }
 
     /// Whether the pool is empty
     #[cfg(test)]
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.by_id.is_empty()
     }
 
     /// Returns `true` if the transaction with the given id is already included in this pool.
-    pub(crate) fn contains(&self, id: &TransactionId) -> bool {
+    pub fn contains(&self, id: &TransactionId) -> bool {
         self.by_id.contains_key(id)
     }
 
     /// Get transactions by sender
-    pub(crate) fn get_txs_by_sender(&self, sender: SenderId) -> Vec<TransactionId> {
+    pub fn get_txs_by_sender(&self, sender: SenderId) -> Vec<TransactionId> {
         self.iter_txs_by_sender(sender).copied().collect()
     }
 
     /// Returns an iterator over all transaction with the sender id
-    pub(crate) fn iter_txs_by_sender(
+    pub fn iter_txs_by_sender(
         &self,
         sender: SenderId,
     ) -> impl Iterator<Item = &TransactionId> + '_ {
@@ -544,13 +546,13 @@ impl<T: TransactionOrdering> PendingPool<T> {
 
     /// Returns a reference to the independent transactions in the pool
     #[cfg(test)]
-    pub(crate) const fn independent(&self) -> &FxHashMap<SenderId, PendingTransaction<T>> {
+    pub const fn independent(&self) -> &FxHashMap<SenderId, PendingTransaction<T>> {
         &self.independent_transactions
     }
 
     /// Asserts that the bijection between `by_id` and `all` is valid.
     #[cfg(any(test, feature = "test-utils"))]
-    pub(crate) fn assert_invariants(&self) {
+    pub fn assert_invariants(&self) {
         assert!(
             self.independent_transactions.len() <= self.by_id.len(),
             "independent.len() > all.len()"
@@ -569,18 +571,18 @@ impl<T: TransactionOrdering> PendingPool<T> {
 
 /// A transaction that is ready to be included in a block.
 #[derive(Debug)]
-pub(crate) struct PendingTransaction<T: TransactionOrdering> {
+pub struct PendingTransaction<T: TransactionOrdering> {
     /// Identifier that tags when transaction was submitted in the pool.
-    pub(crate) submission_id: u64,
+    pub submission_id: u64,
     /// Actual transaction.
-    pub(crate) transaction: Arc<ValidPoolTransaction<T::Transaction>>,
+    pub transaction: Arc<ValidPoolTransaction<T::Transaction>>,
     /// The priority value assigned by the used `Ordering` function.
-    pub(crate) priority: Priority<T::PriorityValue>,
+    pub priority: Priority<T::PriorityValue>,
 }
 
 impl<T: TransactionOrdering> PendingTransaction<T> {
     /// The next transaction of the sender: `nonce + 1`
-    pub(crate) fn unlocks(&self) -> TransactionId {
+    pub fn unlocks(&self) -> TransactionId {
         self.transaction.transaction_id.descendant()
     }
 }

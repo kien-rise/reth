@@ -86,38 +86,38 @@ use tracing::trace;
 /// ```
 pub struct TxPool<T: TransactionOrdering> {
     /// Contains the currently known information about the senders.
-    sender_info: FxHashMap<SenderId, SenderInfo>,
+    pub sender_info: FxHashMap<SenderId, SenderInfo>,
     /// pending subpool
     ///
     /// Holds transactions that are ready to be executed on the current state.
-    pending_pool: PendingPool<T>,
+    pub pending_pool: PendingPool<T>,
     /// Pool settings to enforce limits etc.
-    config: PoolConfig,
+    pub config: PoolConfig,
     /// queued subpool
     ///
     /// Holds all parked transactions that depend on external changes from the sender:
     ///
     ///    - blocked by missing ancestor transaction (has nonce gaps)
     ///    - sender lacks funds to pay for this transaction.
-    queued_pool: ParkedPool<QueuedOrd<T::Transaction>>,
+    pub queued_pool: ParkedPool<QueuedOrd<T::Transaction>>,
     /// base fee subpool
     ///
     /// Holds all parked transactions that currently violate the dynamic fee requirement but could
     /// be moved to pending if the base fee changes in their favor (decreases) in future blocks.
-    basefee_pool: ParkedPool<BasefeeOrd<T::Transaction>>,
+    pub basefee_pool: ParkedPool<BasefeeOrd<T::Transaction>>,
     /// Blob transactions in the pool that are __not pending__.
     ///
     /// This means they either do not satisfy the dynamic fee requirement or the blob fee
     /// requirement. These transactions can be moved to pending if the base fee or blob fee changes
     /// in their favor (decreases) in future blocks. The transaction may need both the base fee and
     /// blob fee to decrease to become executable.
-    blob_pool: BlobTransactions<T::Transaction>,
+    pub blob_pool: BlobTransactions<T::Transaction>,
     /// All transactions in the pool.
-    all_transactions: AllTransactions<T::Transaction>,
+    pub all_transactions: AllTransactions<T::Transaction>,
     /// Transaction pool metrics
-    metrics: TxPoolMetrics,
+    pub metrics: TxPoolMetrics,
     /// The last update kind that was applied to the pool.
-    latest_update_kind: Option<PoolUpdateKind>,
+    pub latest_update_kind: Option<PoolUpdateKind>,
 }
 
 // === impl TxPool ===
@@ -161,7 +161,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     /// instead.
     ///
     /// Note: The next pending pooled transaction must have the on chain nonce.
-    pub(crate) fn get_highest_consecutive_transaction_by_sender(
+    pub fn get_highest_consecutive_transaction_by_sender(
         &self,
         mut on_chain: TransactionId,
     ) -> Option<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -185,12 +185,12 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns access to the [`AllTransactions`] container.
-    pub(crate) const fn all(&self) -> &AllTransactions<T::Transaction> {
+    pub const fn all(&self) -> &AllTransactions<T::Transaction> {
         &self.all_transactions
     }
 
     /// Returns all senders in the pool
-    pub(crate) fn unique_senders(&self) -> HashSet<Address> {
+    pub fn unique_senders(&self) -> HashSet<Address> {
         self.all_transactions.txs.values().map(|tx| tx.transaction.sender()).collect()
     }
 
@@ -336,8 +336,8 @@ impl<T: TransactionOrdering> TxPool<T> {
 
     /// Returns an iterator that yields transactions that are ready to be included in the block with
     /// the tracked fees.
-    pub(crate) fn best_transactions(&self) -> BestTransactions<T> {
-        self.pending_pool.best()
+    pub fn best_transactions(&self) -> BestTransactions<T> {
+        self.pending_pool.best() //
     }
 
     /// Returns an iterator that yields transactions that are ready to be included in the block with
@@ -346,7 +346,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     /// If the provided attributes differ from the currently tracked fees, this will also include
     /// transactions that are unlocked by the new fees, or exclude transactions that are no longer
     /// valid with the new fees.
-    pub(crate) fn best_transactions_with_attributes(
+    pub fn best_transactions_with_attributes(
         &self,
         best_transactions_attributes: BestTransactionsAttributes,
     ) -> Box<dyn crate::traits::BestTransactions<Item = Arc<ValidPoolTransaction<T::Transaction>>>>
@@ -371,7 +371,7 @@ impl<T: TransactionOrdering> TxPool<T> {
                             new_blob_fee,
                         ))
                     }
-                    Ordering::Equal => Box::new(self.pending_pool.best()),
+                    Ordering::Equal => Box::new(self.pending_pool.best()), //
                     Ordering::Greater => {
                         // no additional transactions unlocked
                         Box::new(self.pending_pool.best_with_basefee_and_blobfee(
@@ -424,23 +424,23 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns all transactions from the pending sub-pool
-    pub(crate) fn pending_transactions(&self) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
+    pub fn pending_transactions(&self) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
         self.pending_pool.all().collect()
     }
     /// Returns an iterator over all transactions from the pending sub-pool
-    pub(crate) fn pending_transactions_iter(
+    pub fn pending_transactions_iter(
         &self,
     ) -> impl Iterator<Item = Arc<ValidPoolTransaction<T::Transaction>>> + '_ {
         self.pending_pool.all()
     }
 
     /// Returns the number of transactions from the pending sub-pool
-    pub(crate) fn pending_transactions_count(&self) -> usize {
+    pub fn pending_transactions_count(&self) -> usize {
         self.pending_pool.len()
     }
 
     /// Returns all pending transactions filtered by predicate
-    pub(crate) fn pending_transactions_with_predicate(
+    pub fn pending_transactions_with_predicate(
         &self,
         mut predicate: impl FnMut(&ValidPoolTransaction<T::Transaction>) -> bool,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -448,7 +448,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns all pending transactions for the specified sender
-    pub(crate) fn pending_txs_by_sender(
+    pub fn pending_txs_by_sender(
         &self,
         sender: SenderId,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -456,19 +456,19 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns all transactions from parked pools
-    pub(crate) fn queued_transactions(&self) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
+    pub fn queued_transactions(&self) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
         self.basefee_pool.all().chain(self.queued_pool.all()).collect()
     }
 
     /// Returns an iterator over all transactions from parked pools
-    pub(crate) fn queued_transactions_iter(
+    pub fn queued_transactions_iter(
         &self,
     ) -> impl Iterator<Item = Arc<ValidPoolTransaction<T::Transaction>>> + '_ {
         self.basefee_pool.all().chain(self.queued_pool.all())
     }
 
     /// Returns the number of transactions in parked pools
-    pub(crate) fn queued_transactions_count(&self) -> usize {
+    pub fn queued_transactions_count(&self) -> usize {
         self.basefee_pool.len() + self.queued_pool.len()
     }
 
@@ -481,7 +481,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns all queued transactions for the specified sender
-    pub(crate) fn queued_txs_by_sender(
+    pub fn queued_txs_by_sender(
         &self,
         sender: SenderId,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -489,13 +489,13 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns `true` if the transaction with the given hash is already included in this pool.
-    pub(crate) fn contains(&self, tx_hash: &TxHash) -> bool {
+    pub fn contains(&self, tx_hash: &TxHash) -> bool {
         self.all_transactions.contains(tx_hash)
     }
 
     /// Returns `true` if the transaction with the given id is already included in the given subpool
     #[cfg(test)]
-    pub(crate) fn subpool_contains(&self, subpool: SubPool, id: &TransactionId) -> bool {
+    pub fn subpool_contains(&self, subpool: SubPool, id: &TransactionId) -> bool {
         match subpool {
             SubPool::Queued => self.queued_pool.contains(id),
             SubPool::Pending => self.pending_pool.contains(id),
@@ -506,12 +506,12 @@ impl<T: TransactionOrdering> TxPool<T> {
 
     /// Returns `true` if the pool is over its configured limits.
     #[inline]
-    pub(crate) fn is_exceeded(&self) -> bool {
+    pub fn is_exceeded(&self) -> bool {
         self.config.is_exceeded(self.size())
     }
 
     /// Returns the transaction for the given hash.
-    pub(crate) fn get(
+    pub fn get(
         &self,
         tx_hash: &TxHash,
     ) -> Option<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -519,7 +519,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns transactions for the multiple given hashes, if they exist.
-    pub(crate) fn get_all(
+    pub fn get_all(
         &self,
         txs: Vec<TxHash>,
     ) -> impl Iterator<Item = Arc<ValidPoolTransaction<T::Transaction>>> + '_ {
@@ -527,7 +527,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Returns all transactions sent from the given sender.
-    pub(crate) fn get_transactions_by_sender(
+    pub fn get_transactions_by_sender(
         &self,
         sender: SenderId,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -535,7 +535,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Updates the transactions for the changed senders.
-    pub(crate) fn update_accounts(
+    pub fn update_accounts(
         &mut self,
         changed_senders: FxHashMap<SenderId, SenderInfo>,
     ) -> UpdateOutcome<T::Transaction> {
@@ -556,7 +556,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     ///
     /// This removes all mined transactions, updates according to the new base fee and rechecks
     /// sender allowance.
-    pub(crate) fn on_canonical_state_change(
+    pub fn on_canonical_state_change(
         &mut self,
         block_info: BlockInfo,
         mined_transactions: Vec<TxHash>,
@@ -590,7 +590,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Update sub-pools size metrics.
-    pub(crate) fn update_size_metrics(&self) {
+    pub fn update_size_metrics(&self) {
         let stats = self.size();
         self.metrics.pending_pool_transactions.set(stats.pending as f64);
         self.metrics.pending_pool_size_bytes.set(stats.pending_size as f64);
@@ -604,7 +604,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Updates transaction type metrics for the entire pool.
-    pub(crate) fn update_transaction_type_metrics(&self) {
+    pub fn update_transaction_type_metrics(&self) {
         let mut legacy_count = 0;
         let mut eip2930_count = 0;
         let mut eip1559_count = 0;
@@ -654,7 +654,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     /// requirement, or blob fee requirement. Transactions become executable only if the
     /// transaction `feeCap` is greater than the block's `baseFee` and the `maxBlobFee` is greater
     /// than the block's `blobFee`.
-    pub(crate) fn add_transaction(
+    pub fn add_transaction(
         &mut self,
         tx: ValidPoolTransaction<T::Transaction>,
         on_chain_balance: U256,
@@ -886,7 +886,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     ///
     /// Note: this does not advance any descendants of the removed transactions and does not apply
     /// any additional updates.
-    pub(crate) fn remove_transactions(
+    pub fn remove_transactions(
         &mut self,
         hashes: Vec<TxHash>,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -897,7 +897,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Removes and returns all matching transactions and their descendants from the pool.
-    pub(crate) fn remove_transactions_and_descendants(
+    pub fn remove_transactions_and_descendants(
         &mut self,
         hashes: Vec<TxHash>,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -913,7 +913,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Removes all transactions from the given sender.
-    pub(crate) fn remove_transactions_by_sender(
+    pub fn remove_transactions_by_sender(
         &mut self,
         sender_id: SenderId,
     ) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
@@ -1077,7 +1077,7 @@ impl<T: TransactionOrdering> TxPool<T> {
     /// pool and returned.
     ///
     /// This returns all transactions that were removed from the entire pool.
-    pub(crate) fn discard_worst(&mut self) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
+    pub fn discard_worst(&mut self) -> Vec<Arc<ValidPoolTransaction<T::Transaction>>> {
         let mut removed = Vec::new();
 
         // Helper macro that discards the worst transactions for the pools
@@ -1140,12 +1140,12 @@ impl<T: TransactionOrdering> TxPool<T> {
     }
 
     /// Number of transactions in the entire pool
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.all_transactions.len()
     }
 
     /// Whether the pool is empty
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.all_transactions.is_empty()
     }
 
@@ -1191,15 +1191,18 @@ impl<T: TransactionOrdering> Drop for TxPool<T> {
 // Additional test impls
 #[cfg(any(test, feature = "test-utils"))]
 impl<T: TransactionOrdering> TxPool<T> {
-    pub(crate) const fn pending(&self) -> &PendingPool<T> {
+    /// fn pending(&self) -> &PendingPool<T>
+    pub const fn pending(&self) -> &PendingPool<T> {
         &self.pending_pool
     }
 
-    pub(crate) const fn base_fee(&self) -> &ParkedPool<BasefeeOrd<T::Transaction>> {
+    /// fn base_fee(&self) -> &ParkedPool<BasefeeOrd<T::Transaction>>
+    pub const fn base_fee(&self) -> &ParkedPool<BasefeeOrd<T::Transaction>> {
         &self.basefee_pool
     }
 
-    pub(crate) const fn queued(&self) -> &ParkedPool<QueuedOrd<T::Transaction>> {
+    /// fn queued(&self) -> &ParkedPool<QueuedOrd<T::Transaction>>
+    pub const fn queued(&self) -> &ParkedPool<QueuedOrd<T::Transaction>> {
         &self.queued_pool
     }
 }
@@ -1214,7 +1217,8 @@ impl<T: TransactionOrdering> fmt::Debug for TxPool<T> {
 ///
 /// This is the sole entrypoint that's guarding all sub-pools, all sub-pool actions are always
 /// derived from this set. Updates returned from this type must be applied to the sub-pools.
-pub(crate) struct AllTransactions<T: PoolTransaction> {
+#[derive(Debug)]
+pub struct AllTransactions<T: PoolTransaction> {
     /// Minimum base fee required by the protocol.
     ///
     /// Transactions with a lower base fee will never be included by the chain
@@ -1259,37 +1263,36 @@ impl<T: PoolTransaction> AllTransactions<T> {
     }
 
     /// Returns an iterator over all _unique_ hashes in the pool
-    #[expect(dead_code)]
-    pub(crate) fn hashes_iter(&self) -> impl Iterator<Item = TxHash> + '_ {
+    pub fn hashes_iter(&self) -> impl Iterator<Item = TxHash> + '_ {
         self.by_hash.keys().copied()
     }
 
     /// Returns an iterator over all transactions in the pool
-    pub(crate) fn transactions_iter(
+    pub fn transactions_iter(
         &self,
     ) -> impl Iterator<Item = &Arc<ValidPoolTransaction<T>>> + '_ {
         self.by_hash.values()
     }
 
     /// Returns if the transaction for the given hash is already included in this pool
-    pub(crate) fn contains(&self, tx_hash: &TxHash) -> bool {
+    pub fn contains(&self, tx_hash: &TxHash) -> bool {
         self.by_hash.contains_key(tx_hash)
     }
 
     /// Returns the internal transaction with additional metadata
-    pub(crate) fn get(&self, id: &TransactionId) -> Option<&PoolInternalTransaction<T>> {
+    pub fn get(&self, id: &TransactionId) -> Option<&PoolInternalTransaction<T>> {
         self.txs.get(id)
     }
 
     /// Increments the transaction counter for the sender
-    pub(crate) fn tx_inc(&mut self, sender: SenderId) {
+    pub fn tx_inc(&mut self, sender: SenderId) {
         let count = self.tx_counter.entry(sender).or_default();
         *count += 1;
         self.metrics.all_transactions_by_all_senders.increment(1.0);
     }
 
     /// Decrements the transaction counter for the sender
-    pub(crate) fn tx_decr(&mut self, sender: SenderId) {
+    pub fn tx_decr(&mut self, sender: SenderId) {
         if let hash_map::Entry::Occupied(mut entry) = self.tx_counter.entry(sender) {
             let count = entry.get_mut();
             if *count == 1 {
@@ -1326,7 +1329,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     }
 
     /// Updates the size metrics
-    pub(crate) fn update_size_metrics(&self) {
+    pub fn update_size_metrics(&self) {
         self.metrics.all_transactions_by_hash.set(self.by_hash.len() as f64);
         self.metrics.all_transactions_by_id.set(self.txs.len() as f64);
     }
@@ -1347,7 +1350,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     ///
     /// Additionally, this will also update the `cumulative_gas_used` for transactions of a sender
     /// that got transaction included in the block.
-    pub(crate) fn update(
+    pub fn update(
         &mut self,
         changed_accounts: &FxHashMap<SenderId, SenderInfo>,
     ) -> Vec<PoolUpdate> {
@@ -1516,7 +1519,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
 
     /// Returns an iterator over all transactions for the given sender, starting with the lowest
     /// nonce
-    pub(crate) fn txs_iter(
+    pub fn txs_iter(
         &self,
         sender: SenderId,
     ) -> impl Iterator<Item = (&TransactionId, &PoolInternalTransaction<T>)> + '_ {
@@ -1528,8 +1531,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     /// Returns a mutable iterator over all transactions for the given sender, starting with the
     /// lowest nonce
     #[cfg(test)]
-    #[expect(dead_code)]
-    pub(crate) fn txs_iter_mut(
+    pub fn txs_iter_mut(
         &mut self,
         sender: SenderId,
     ) -> impl Iterator<Item = (&TransactionId, &mut PoolInternalTransaction<T>)> + '_ {
@@ -1541,7 +1543,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     /// Returns all transactions that _follow_ after the given id and have the same sender.
     ///
     /// NOTE: The range is _exclusive_
-    pub(crate) fn descendant_txs_exclusive<'a, 'b: 'a>(
+    pub fn descendant_txs_exclusive<'a, 'b: 'a>(
         &'a self,
         id: &'b TransactionId,
     ) -> impl Iterator<Item = (&'a TransactionId, &'a PoolInternalTransaction<T>)> + 'a {
@@ -1552,7 +1554,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     ///
     /// NOTE: The range is _inclusive_: if the transaction that belongs to `id` it will be the
     /// first value.
-    pub(crate) fn descendant_txs_inclusive<'a, 'b: 'a>(
+    pub fn descendant_txs_inclusive<'a, 'b: 'a>(
         &'a self,
         id: &'b TransactionId,
     ) -> impl Iterator<Item = (&'a TransactionId, &'a PoolInternalTransaction<T>)> + 'a {
@@ -1563,7 +1565,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     ///
     /// NOTE: The range is _inclusive_: if the transaction that belongs to `id` it field be the
     /// first value.
-    pub(crate) fn descendant_txs_mut<'a, 'b: 'a>(
+    pub fn descendant_txs_mut<'a, 'b: 'a>(
         &'a mut self,
         id: &'b TransactionId,
     ) -> impl Iterator<Item = (&'a TransactionId, &'a mut PoolInternalTransaction<T>)> + 'a {
@@ -1571,7 +1573,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     }
 
     /// Removes a transaction from the set using its hash.
-    pub(crate) fn remove_transaction_by_hash(
+    pub fn remove_transaction_by_hash(
         &mut self,
         tx_hash: &B256,
     ) -> Option<(Arc<ValidPoolTransaction<T>>, SubPool)> {
@@ -1586,7 +1588,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     /// Removes a transaction from the set using its id.
     ///
     /// This is intended for processing updates after state changes.
-    pub(crate) fn remove_transaction_by_id(
+    pub fn remove_transaction_by_id(
         &mut self,
         tx_id: &TransactionId,
     ) -> Option<(Arc<ValidPoolTransaction<T>>, SubPool)> {
@@ -1599,7 +1601,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     }
 
     /// If a tx is removed (_not_ mined), all descendants are set to parked due to the nonce gap
-    pub(crate) fn park_descendant_transactions(
+    pub fn park_descendant_transactions(
         &mut self,
         tx_id: &TransactionId,
     ) -> Vec<PoolUpdate> {
@@ -1631,7 +1633,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     /// This will _not_ trigger additional updates, because descendants without nonce gaps are
     /// already in the pending pool, and this transaction will be the first transaction of the
     /// sender in this pool.
-    pub(crate) fn remove_transaction(
+    pub fn remove_transaction(
         &mut self,
         id: &TransactionId,
     ) -> Option<(Arc<ValidPoolTransaction<T>>, SubPool)> {
@@ -1809,7 +1811,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     ///
     /// The replacement candidate must satisfy given price bump constraints: replacement candidate
     /// must not be underpriced
-    pub(crate) fn insert_tx(
+    pub fn insert_tx(
         &mut self,
         transaction: ValidPoolTransaction<T>,
         on_chain_balance: U256,
@@ -1996,18 +1998,18 @@ impl<T: PoolTransaction> AllTransactions<T> {
     }
 
     /// Number of transactions in the entire pool
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.txs.len()
     }
 
     /// Whether the pool is empty
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.txs.is_empty()
     }
 
     /// Asserts that the bijection between `by_hash` and `txs` is valid.
     #[cfg(any(test, feature = "test-utils"))]
-    pub(crate) fn assert_invariants(&self) {
+    pub fn assert_invariants(&self) {
         assert_eq!(self.by_hash.len(), self.txs.len(), "by_hash.len() != txs.len()");
         assert!(self.auths.len() <= self.txs.len(), "auths > txs.len()");
     }
@@ -2018,7 +2020,7 @@ impl<T: PoolTransaction> AllTransactions<T> {
     /// This function retrieves the number of transactions stored in the pool for a specific sender.
     ///
     /// If there are no transactions for the given sender, it returns zero by default.
-    pub(crate) fn tx_count(&self, sender: SenderId) -> usize {
+    pub fn tx_count(&self, sender: SenderId) -> usize {
         self.tx_counter.get(&sender).copied().unwrap_or_default()
     }
 }
@@ -2045,11 +2047,11 @@ impl<T: PoolTransaction> Default for AllTransactions<T> {
 
 /// Represents updated fees for the pending block.
 #[derive(Debug, Clone)]
-pub(crate) struct PendingFees {
+pub struct PendingFees {
     /// The pending base fee
-    pub(crate) base_fee: u64,
+    pub base_fee: u64,
     /// The pending blob fee
-    pub(crate) blob_fee: u128,
+    pub blob_fee: u128,
 }
 
 impl Default for PendingFees {
@@ -2059,43 +2061,63 @@ impl Default for PendingFees {
 }
 
 /// Result type for inserting a transaction
-pub(crate) type InsertResult<T> = Result<InsertOk<T>, InsertErr<T>>;
+pub type InsertResult<T> = Result<InsertOk<T>, InsertErr<T>>;
 
 /// Err variant of `InsertResult`
 #[derive(Debug)]
-pub(crate) enum InsertErr<T: PoolTransaction> {
+pub enum InsertErr<T: PoolTransaction> {
     /// Attempted to replace existing transaction, but was underpriced
     Underpriced {
+        ///
         transaction: Arc<ValidPoolTransaction<T>>,
-        #[expect(dead_code)]
+        ///
         existing: TxHash,
     },
     /// Attempted to insert a blob transaction with a nonce gap
-    BlobTxHasNonceGap { transaction: Arc<ValidPoolTransaction<T>> },
+    BlobTxHasNonceGap {
+        ///
+        transaction: Arc<ValidPoolTransaction<T>>,
+    },
     /// Attempted to insert a transaction that would overdraft the sender's balance at the time of
     /// insertion.
-    Overdraft { transaction: Arc<ValidPoolTransaction<T>> },
+    Overdraft {
+        ///
+        transaction: Arc<ValidPoolTransaction<T>>,
+    },
     /// The transactions feeCap is lower than the chain's minimum fee requirement.
     ///
     /// See also [`MIN_PROTOCOL_BASE_FEE`]
-    FeeCapBelowMinimumProtocolFeeCap { transaction: Arc<ValidPoolTransaction<T>>, fee_cap: u128 },
+    FeeCapBelowMinimumProtocolFeeCap {
+        ///
+        transaction: Arc<ValidPoolTransaction<T>>,
+        ///
+        fee_cap: u128,
+    },
     /// Sender currently exceeds the configured limit for max account slots.
     ///
     /// The sender can be considered a spammer at this point.
-    ExceededSenderTransactionsCapacity { transaction: Arc<ValidPoolTransaction<T>> },
+    ExceededSenderTransactionsCapacity {
+        ///
+        transaction: Arc<ValidPoolTransaction<T>>,
+    },
     /// Transaction gas limit exceeds block's gas limit
     TxGasLimitMoreThanAvailableBlockGas {
+        ///
         transaction: Arc<ValidPoolTransaction<T>>,
+        ///
         block_gas_limit: u64,
+        ///
         tx_gas_limit: u64,
     },
     /// Thrown if the mutual exclusivity constraint (blob vs normal transaction) is violated.
-    TxTypeConflict { transaction: Arc<ValidPoolTransaction<T>> },
+    TxTypeConflict {
+        ///
+        transaction: Arc<ValidPoolTransaction<T>>,
+    },
 }
-
 /// Transaction was successfully inserted into the pool
 #[derive(Debug)]
-pub(crate) struct InsertOk<T: PoolTransaction> {
+pub struct InsertOk<T: PoolTransaction> {
     /// Ref to the inserted transaction.
     transaction: Arc<ValidPoolTransaction<T>>,
     /// Where to move the transaction to.
@@ -2112,19 +2134,19 @@ pub(crate) struct InsertOk<T: PoolTransaction> {
 /// The internal transaction typed used by `AllTransactions` which also additional info used for
 /// determining the current state of the transaction.
 #[derive(Debug)]
-pub(crate) struct PoolInternalTransaction<T: PoolTransaction> {
+pub struct PoolInternalTransaction<T: PoolTransaction> {
     /// The actual transaction object.
-    pub(crate) transaction: Arc<ValidPoolTransaction<T>>,
+    pub transaction: Arc<ValidPoolTransaction<T>>,
     /// The `SubPool` that currently contains this transaction.
-    pub(crate) subpool: SubPool,
+    pub subpool: SubPool,
     /// Keeps track of the current state of the transaction and therefore in which subpool it
     /// should reside
-    pub(crate) state: TxState,
+    pub state: TxState,
     /// The total cost all transactions before this transaction.
     ///
     /// This is the combined `cost` of all transactions from the same sender that currently
     /// come before this transaction.
-    pub(crate) cumulative_cost: U256,
+    pub cumulative_cost: U256,
 }
 
 // === impl PoolInternalTransaction ===
@@ -2137,11 +2159,11 @@ impl<T: PoolTransaction> PoolInternalTransaction<T> {
 
 /// Stores relevant context about a sender.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct SenderInfo {
+pub struct SenderInfo {
     /// current nonce of the sender.
-    pub(crate) state_nonce: u64,
+    pub state_nonce: u64,
     /// Balance of the sender at the current point.
-    pub(crate) balance: U256,
+    pub balance: U256,
 }
 
 // === impl SenderInfo ===
