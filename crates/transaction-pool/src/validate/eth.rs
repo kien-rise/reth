@@ -255,6 +255,7 @@ where
         origin: TransactionOrigin,
         transaction: Tx,
     ) -> Result<Tx, TransactionValidationOutcome<Tx>> {
+        println!("self.other_tx_types = {:?}", self.other_tx_types);
         // Checks for tx_type
         match transaction.ty() {
             LEGACY_TX_TYPE_ID => {
