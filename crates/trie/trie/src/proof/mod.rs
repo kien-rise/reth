@@ -124,8 +124,10 @@ where
         );
 
         let multiproof_start = std::time::Instant::now();
-        let multiproof_result =
-            self.multiproof(MultiProofTargets::from_iter([(hashed_address, hashed_slots.into_iter().collect())]));
+        let multiproof_result = self.multiproof(MultiProofTargets::from_iter([(
+            hashed_address,
+            hashed_slots.into_iter().collect(),
+        )]));
 
         match &multiproof_result {
             Ok(_) => {

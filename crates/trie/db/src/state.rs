@@ -247,31 +247,111 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostStateSorted {
         tx: &TX,
         range: impl RangeBounds<BlockNumber>,
     ) -> Result<Self, DatabaseError> {
+        let start = std::time::Instant::now();
+        tracing::debug!(
+            target: "trie::db::reverts",
+            "from_reverts: Starting to read account changesets"
+        );
+
         // Read accounts directly into Vec with HashSet to track seen keys.
         // Only keep the first (oldest) occurrence of each account.
         let mut accounts = Vec::new();
         let mut seen_accounts = HashSet::new();
         let account_range = (range.start_bound(), range.end_bound());
+
+        let cursor_start = std::time::Instant::now();
         let mut account_changesets_cursor = tx.cursor_read::<tables::AccountChangeSets>()?;
 
+        tracing::debug!(
+            target: "trie::db::reverts",
+            elapsed_ms = cursor_start.elapsed().as_millis(),
+            "from_reverts: Created account changesets cursor"
+        );
+
+        let walk_start = std::time::Instant::now();
+        let mut account_entries_scanned = 0u64;
+        let mut account_entries_kept = 0u64;
+
         for entry in account_changesets_cursor.walk_range(account_range)? {
+            account_entries_scanned += 1;
+
+            if account_entries_scanned % 10000 == 0 {
+                tracing::debug!(
+                    target: "trie::db::reverts",
+                    account_entries_scanned,
+                    account_entries_kept,
+                    elapsed_ms = walk_start.elapsed().as_millis(),
+                    "from_reverts: Processing account changesets"
+                );
+            }
+
             let (_, AccountBeforeTx { address, info }) = entry?;
             if seen_accounts.insert(address) {
+                account_entries_kept += 1;
                 accounts.push((KH::hash_key(address), info));
             }
         }
+
+        tracing::debug!(
+            target: "trie::db::reverts",
+            account_entries_scanned,
+            account_entries_kept,
+            unique_accounts = accounts.len(),
+            walk_elapsed_ms = walk_start.elapsed().as_millis(),
+            "from_reverts: Completed reading account changesets"
+        );
+
+        let sort_start = std::time::Instant::now();
         accounts.sort_unstable_by_key(|(hash, _)| *hash);
+
+        tracing::debug!(
+            target: "trie::db::reverts",
+            accounts_count = accounts.len(),
+            elapsed_ms = sort_start.elapsed().as_millis(),
+            "from_reverts: Sorted accounts by hash"
+        );
 
         // Read storages directly into B256Map<Vec<_>> with HashSet to track seen keys.
         // Only keep the first (oldest) occurrence of each (address, slot) pair.
+        tracing::debug!(
+            target: "trie::db::reverts",
+            "from_reverts: Starting to read storage changesets"
+        );
+
         let storage_range: BlockNumberAddressRange = range.into();
         let mut storages = B256Map::<Vec<_>>::default();
         let mut seen_storage_keys = HashSet::new();
+
+        let storage_cursor_start = std::time::Instant::now();
         let mut storage_changesets_cursor = tx.cursor_read::<tables::StorageChangeSets>()?;
 
+        tracing::debug!(
+            target: "trie::db::reverts",
+            elapsed_ms = storage_cursor_start.elapsed().as_millis(),
+            "from_reverts: Created storage changesets cursor"
+        );
+
+        let storage_walk_start = std::time::Instant::now();
+        let mut storage_entries_scanned = 0u64;
+        let mut storage_entries_kept = 0u64;
+
         for entry in storage_changesets_cursor.walk_range(storage_range)? {
+            storage_entries_scanned += 1;
+
+            if storage_entries_scanned % 50000 == 0 {
+                tracing::debug!(
+                    target: "trie::db::reverts",
+                    storage_entries_scanned,
+                    storage_entries_kept,
+                    unique_addresses = storages.len(),
+                    elapsed_ms = storage_walk_start.elapsed().as_millis(),
+                    "from_reverts: Processing storage changesets"
+                );
+            }
+
             let (BlockNumberAddress((_, address)), storage) = entry?;
             if seen_storage_keys.insert((address, storage.key)) {
+                storage_entries_kept += 1;
                 let hashed_address = KH::hash_key(address);
                 storages
                     .entry(hashed_address)
@@ -280,14 +360,32 @@ impl<TX: DbTx> DatabaseHashedPostState<TX> for HashedPostStateSorted {
             }
         }
 
+        tracing::debug!(
+            target: "trie::db::reverts",
+            storage_entries_scanned,
+            storage_entries_kept,
+            unique_addresses = storages.len(),
+            walk_elapsed_ms = storage_walk_start.elapsed().as_millis(),
+            "from_reverts: Completed reading storage changesets"
+        );
+
         // Sort storage slots and convert to HashedStorageSorted
-        let hashed_storages = storages
+        let finalize_start = std::time::Instant::now();
+        let hashed_storages: B256Map<_> = storages
             .into_iter()
             .map(|(address, mut slots)| {
                 slots.sort_unstable_by_key(|(slot, _)| *slot);
                 (address, HashedStorageSorted { storage_slots: slots, wiped: false })
             })
             .collect();
+
+        tracing::debug!(
+            target: "trie::db::reverts",
+            addresses_with_storage = hashed_storages.len(),
+            finalize_elapsed_ms = finalize_start.elapsed().as_millis(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            "from_reverts: Sorted storage slots and finalized"
+        );
 
         Ok(Self::new(accounts, hashed_storages))
     }

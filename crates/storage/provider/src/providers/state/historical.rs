@@ -155,7 +155,7 @@ impl<'b, Provider: DBProvider + BlockNumReader> HistoricalStateProviderRef<'b, P
         let reverts_start = std::time::Instant::now();
         let result =
             HashedPostStateSorted::from_reverts::<KeccakKeyHasher>(self.tx(), self.block_number..)
-                .map_err(ProviderError::from);
+                .map_err(ProviderError::from); // RISE: this is time consuming
 
         tracing::debug!(
             target: "provider::historical_sp",
