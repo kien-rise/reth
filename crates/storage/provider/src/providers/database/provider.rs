@@ -451,19 +451,51 @@ impl<TX: DbTx + 'static, N: NodeTypes> TryIntoHistoricalStateProvider for Databa
         self,
         mut block_number: BlockNumber,
     ) -> ProviderResult<StateProviderBox> {
+        let start = std::time::Instant::now();
+        let original_block_number = block_number;
+
+        tracing::debug!(
+            target: "providers::db",
+            block_number = original_block_number,
+            "try_into_history_at_block: Starting"
+        );
+
         // if the block number is the same as the currently best block number on disk we can use the
         // latest state provider here
-        if block_number == self.best_block_number().unwrap_or_default() {
+        let best_block_number = self.best_block_number().unwrap_or_default();
+        if block_number == best_block_number {
+            tracing::debug!(
+                target: "providers::db",
+                block_number,
+                elapsed_ms = start.elapsed().as_millis(),
+                "try_into_history_at_block: Using latest state provider (block is best block)"
+            );
             return Ok(Box::new(LatestStateProvider::new(self)))
         }
+
+        tracing::debug!(
+            target: "providers::db",
+            block_number,
+            best_block_number,
+            "try_into_history_at_block: Creating historical state provider"
+        );
 
         // +1 as the changeset that we want is the one that was applied after this block.
         block_number += 1;
 
+        let checkpoint_start = std::time::Instant::now();
         let account_history_prune_checkpoint =
             self.get_prune_checkpoint(PruneSegment::AccountHistory)?;
         let storage_history_prune_checkpoint =
             self.get_prune_checkpoint(PruneSegment::StorageHistory)?;
+
+        tracing::debug!(
+            target: "providers::db",
+            elapsed_ms = checkpoint_start.elapsed().as_millis(),
+            ?account_history_prune_checkpoint,
+            ?storage_history_prune_checkpoint,
+            "try_into_history_at_block: Retrieved prune checkpoints"
+        );
 
         let mut state_provider = HistoricalStateProvider::new(self, block_number);
 
@@ -483,6 +515,14 @@ impl<TX: DbTx + 'static, N: NodeTypes> TryIntoHistoricalStateProvider for Databa
                 prune_checkpoint_block_number + 1,
             );
         }
+
+        tracing::debug!(
+            target: "providers::db",
+            original_block_number,
+            adjusted_block_number = block_number,
+            total_elapsed_ms = start.elapsed().as_millis(),
+            "try_into_history_at_block: Historical state provider created"
+        );
 
         Ok(Box::new(state_provider))
     }

@@ -106,12 +106,59 @@ where
         address: Address,
         slots: &[B256],
     ) -> Result<AccountProof, StateProofError> {
-        Ok(self
-            .multiproof(MultiProofTargets::from_iter([(
-                keccak256(address),
-                slots.iter().map(keccak256).collect(),
-            )]))?
-            .account_proof(address, slots)?)
+        let start = std::time::Instant::now();
+        tracing::debug!(
+            target: "trie::proof",
+            ?address,
+            slots_count = slots.len(),
+            "account_proof: Starting account proof generation"
+        );
+
+        let hashed_address = keccak256(address);
+        let hashed_slots: Vec<_> = slots.iter().map(keccak256).collect();
+
+        tracing::debug!(
+            target: "trie::proof",
+            ?hashed_address,
+            "account_proof: Creating multiproof targets"
+        );
+
+        let multiproof_start = std::time::Instant::now();
+        let multiproof_result =
+            self.multiproof(MultiProofTargets::from_iter([(hashed_address, hashed_slots.into_iter().collect())]));
+
+        match &multiproof_result {
+            Ok(_) => {
+                tracing::debug!(
+                    target: "trie::proof",
+                    elapsed_ms = multiproof_start.elapsed().as_millis(),
+                    "account_proof: Multiproof generated successfully"
+                );
+            }
+            Err(e) => {
+                tracing::debug!(
+                    target: "trie::proof",
+                    elapsed_ms = multiproof_start.elapsed().as_millis(),
+                    error = ?e,
+                    "account_proof: Multiproof generation failed"
+                );
+            }
+        }
+
+        let multiproof = multiproof_result?;
+
+        let convert_start = std::time::Instant::now();
+        let result = multiproof.account_proof(address, slots);
+
+        tracing::debug!(
+            target: "trie::proof",
+            convert_elapsed_ms = convert_start.elapsed().as_millis(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            is_ok = result.is_ok(),
+            "account_proof: Completed account proof generation"
+        );
+
+        Ok(result?)
     }
 
     /// Generate a state multiproof according to specified targets.
@@ -119,13 +166,36 @@ where
         mut self,
         mut targets: MultiProofTargets,
     ) -> Result<MultiProof, StateProofError> {
+        let start = std::time::Instant::now();
+        let target_count = targets.len();
+
+        tracing::debug!(
+            target: "trie::proof",
+            target_count,
+            "multiproof: Starting multiproof generation"
+        );
+
+        let cursor_start = std::time::Instant::now();
         let hashed_account_cursor = self.hashed_cursor_factory.hashed_account_cursor()?;
         let trie_cursor = self.trie_cursor_factory.account_trie_cursor()?;
 
+        tracing::debug!(
+            target: "trie::proof",
+            elapsed_ms = cursor_start.elapsed().as_millis(),
+            "multiproof: Created cursors"
+        );
+
         // Create the walker.
+        let walker_start = std::time::Instant::now();
         let mut prefix_set = self.prefix_sets.account_prefix_set.clone();
         prefix_set.extend_keys(targets.keys().map(Nibbles::unpack));
         let walker = TrieWalker::<_>::state_trie(trie_cursor, prefix_set.freeze());
+
+        tracing::debug!(
+            target: "trie::proof",
+            elapsed_ms = walker_start.elapsed().as_millis(),
+            "multiproof: Created trie walker"
+        );
 
         // Create a hash builder to rebuild the root node since it is not available in the database.
         let retainer = targets.keys().map(Nibbles::unpack).collect();
@@ -138,13 +208,36 @@ where
         let mut storages: B256Map<_> =
             targets.keys().map(|key| (*key, StorageMultiProof::empty())).collect();
         let mut account_rlp = Vec::with_capacity(TRIE_ACCOUNT_RLP_MAX_SIZE);
+
+        let iteration_start = std::time::Instant::now();
         let mut account_node_iter = TrieNodeIter::state_trie(walker, hashed_account_cursor);
+        let mut branch_count = 0;
+        let mut leaf_count = 0;
+
+        tracing::debug!(
+            target: "trie::proof",
+            "multiproof: Starting trie iteration"
+        );
+
         while let Some(account_node) = account_node_iter.try_next()? {
             match account_node {
                 TrieElement::Branch(node) => {
+                    branch_count += 1;
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
                 TrieElement::Leaf(hashed_address, account) => {
+                    leaf_count += 1;
+
+                    if leaf_count % 1000 == 0 {
+                        tracing::debug!(
+                            target: "trie::proof",
+                            leaf_count,
+                            branch_count,
+                            elapsed_ms = iteration_start.elapsed().as_millis(),
+                            "multiproof: Processing leaves"
+                        );
+                    }
+
                     let proof_targets = targets.remove(&hashed_address);
                     let leaf_is_proof_target = proof_targets.is_some();
                     let collect_storage_masks =
@@ -154,6 +247,8 @@ where
                         .storage_prefix_sets
                         .remove(&hashed_address)
                         .unwrap_or_default();
+
+                    let storage_start = std::time::Instant::now();
                     let storage_multiproof = StorageProof::new_hashed(
                         self.trie_cursor_factory.clone(),
                         self.hashed_cursor_factory.clone(),
@@ -162,6 +257,15 @@ where
                     .with_prefix_set_mut(storage_prefix_set)
                     .with_branch_node_masks(collect_storage_masks)
                     .storage_multiproof(proof_targets.unwrap_or_default())?;
+
+                    if leaf_is_proof_target {
+                        tracing::debug!(
+                            target: "trie::proof",
+                            ?hashed_address,
+                            storage_elapsed_ms = storage_start.elapsed().as_millis(),
+                            "multiproof: Generated storage proof for target account"
+                        );
+                    }
 
                     // Encode account
                     account_rlp.clear();
@@ -178,6 +282,16 @@ where
                 }
             }
         }
+
+        tracing::debug!(
+            target: "trie::proof",
+            branch_count,
+            leaf_count,
+            iteration_elapsed_ms = iteration_start.elapsed().as_millis(),
+            "multiproof: Completed trie iteration"
+        );
+
+        let finalize_start = std::time::Instant::now();
         let _ = hash_builder.root();
         let account_subtree = hash_builder.take_proof_nodes();
         let (branch_node_hash_masks, branch_node_tree_masks) = if self.collect_branch_node_masks {
@@ -192,6 +306,14 @@ where
         } else {
             (HashMap::default(), HashMap::default())
         };
+
+        tracing::debug!(
+            target: "trie::proof",
+            proof_nodes = account_subtree.len(),
+            finalize_elapsed_ms = finalize_start.elapsed().as_millis(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            "multiproof: Multiproof generation completed"
+        );
 
         Ok(MultiProof { account_subtree, branch_node_hash_masks, branch_node_tree_masks, storages })
     }
@@ -346,18 +468,41 @@ where
         self,
         targets: B256Set,
     ) -> Result<StorageMultiProof, StateProofError> {
+        let start = std::time::Instant::now();
+        let target_count = targets.len();
+        let hashed_address = self.hashed_address;
+
+        tracing::debug!(
+            target: "trie::proof",
+            ?hashed_address,
+            target_count,
+            "storage_multiproof: Starting storage proof generation"
+        );
+
         let mut discard_hashed_cursor_metrics = HashedCursorMetricsCache::default();
         let hashed_cursor_metrics =
             self.hashed_cursor_metrics.unwrap_or(&mut discard_hashed_cursor_metrics);
 
+        let cursor_start = std::time::Instant::now();
         let hashed_storage_cursor =
             self.hashed_cursor_factory.hashed_storage_cursor(self.hashed_address)?;
 
         let mut hashed_storage_cursor =
             InstrumentedHashedCursor::new(hashed_storage_cursor, hashed_cursor_metrics);
 
+        tracing::debug!(
+            target: "trie::proof",
+            elapsed_ms = cursor_start.elapsed().as_millis(),
+            "storage_multiproof: Created hashed storage cursor"
+        );
+
         // short circuit on empty storage
         if hashed_storage_cursor.is_storage_empty()? {
+            tracing::debug!(
+                target: "trie::proof",
+                elapsed_ms = start.elapsed().as_millis(),
+                "storage_multiproof: Storage is empty, returning empty proof"
+            );
             return Ok(StorageMultiProof::empty())
         }
 
@@ -369,9 +514,15 @@ where
         let mut prefix_set = self.prefix_set;
         prefix_set.extend_keys(target_nibbles.clone());
 
+        let trie_cursor_start = std::time::Instant::now();
         let trie_cursor = self.trie_cursor_factory.storage_trie_cursor(self.hashed_address)?;
-
         let trie_cursor = InstrumentedTrieCursor::new(trie_cursor, trie_cursor_metrics);
+
+        tracing::debug!(
+            target: "trie::proof",
+            elapsed_ms = trie_cursor_start.elapsed().as_millis(),
+            "storage_multiproof: Created trie cursor"
+        );
 
         let walker = TrieWalker::<_>::storage_trie(trie_cursor, prefix_set.freeze())
             .with_added_removed_keys(self.added_removed_keys.as_ref());
@@ -381,13 +532,25 @@ where
         let mut hash_builder = HashBuilder::default()
             .with_proof_retainer(retainer)
             .with_updates(self.collect_branch_node_masks);
+
+        let iteration_start = std::time::Instant::now();
         let mut storage_node_iter = TrieNodeIter::storage_trie(walker, hashed_storage_cursor);
+        let mut branch_count = 0;
+        let mut leaf_count = 0;
+
+        tracing::debug!(
+            target: "trie::proof",
+            "storage_multiproof: Starting storage trie iteration"
+        );
+
         while let Some(node) = storage_node_iter.try_next()? {
             match node {
                 TrieElement::Branch(node) => {
+                    branch_count += 1;
                     hash_builder.add_branch(node.key, node.value, node.children_are_in_trie);
                 }
                 TrieElement::Leaf(hashed_slot, value) => {
+                    leaf_count += 1;
                     hash_builder.add_leaf(
                         Nibbles::unpack(hashed_slot),
                         alloy_rlp::encode_fixed_size(&value).as_ref(),
@@ -396,6 +559,15 @@ where
             }
         }
 
+        tracing::debug!(
+            target: "trie::proof",
+            branch_count,
+            leaf_count,
+            iteration_elapsed_ms = iteration_start.elapsed().as_millis(),
+            "storage_multiproof: Completed storage trie iteration"
+        );
+
+        let finalize_start = std::time::Instant::now();
         let root = hash_builder.root();
         let subtree = hash_builder.take_proof_nodes();
         let (branch_node_hash_masks, branch_node_tree_masks) = if self.collect_branch_node_masks {
@@ -410,6 +582,14 @@ where
         } else {
             (HashMap::default(), HashMap::default())
         };
+
+        tracing::debug!(
+            target: "trie::proof",
+            proof_nodes = subtree.len(),
+            finalize_elapsed_ms = finalize_start.elapsed().as_millis(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            "storage_multiproof: Storage proof generation completed"
+        );
 
         Ok(StorageMultiProof { root, subtree, branch_node_hash_masks, branch_node_tree_masks })
     }

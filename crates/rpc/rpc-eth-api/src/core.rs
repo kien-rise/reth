@@ -377,7 +377,7 @@ pub trait EthApi<
 
     /// Returns the account and storage values of the specified account including the Merkle-proof.
     /// This call can be used to verify that the data you are pulling from is not tampered with.
-    #[method(name = "getProof")]
+    #[method(name = "getProof")] // here
     async fn get_proof(
         &self,
         address: Address,
@@ -863,6 +863,7 @@ where
 
     /// Handler for: `eth_getProof`
     async fn get_proof(
+        // here
         &self,
         address: Address,
         keys: Vec<JsonStorageKey>,

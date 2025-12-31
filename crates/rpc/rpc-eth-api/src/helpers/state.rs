@@ -84,6 +84,7 @@ pub trait EthState: LoadState + SpawnBlocking {
 
     /// Returns values stored of given account, with Merkle-proof, at given blocknumber.
     fn get_proof(
+        // here
         &self,
         address: Address,
         keys: Vec<JsonStorageKey>,
@@ -96,11 +97,26 @@ pub trait EthState: LoadState + SpawnBlocking {
         Self: EthApiSpec,
     {
         Ok(async move {
+            let start = std::time::Instant::now();
+            tracing::debug!(
+                target: "rpc::eth::proof",
+                ?address,
+                ?block_id,
+                storage_keys_count = keys.len(),
+                "Starting eth_getProof request"
+            );
+
             let _permit = self
                 .acquire_owned_tracing()
                 .await
                 .map_err(RethError::other)
                 .map_err(EthApiError::Internal)?;
+
+            tracing::debug!(
+                target: "rpc::eth::proof",
+                elapsed_ms = start.elapsed().as_millis(),
+                "Acquired blocking task permit"
+            );
 
             let chain_info = self.chain_info().map_err(Self::Error::from_eth_err)?;
             let block_id = block_id.unwrap_or_default();
@@ -111,17 +127,59 @@ pub trait EthState: LoadState + SpawnBlocking {
                 .block_number_for_id(block_id)
                 .map_err(Self::Error::from_eth_err)?
                 .ok_or(EthApiError::HeaderNotFound(block_id))?;
+
+            tracing::debug!(
+                target: "rpc::eth::proof",
+                elapsed_ms = start.elapsed().as_millis(),
+                ?block_number,
+                best_block = chain_info.best_number,
+                block_distance = chain_info.best_number.saturating_sub(block_number),
+                "Resolved block number for proof"
+            );
+
             let max_window = self.max_proof_window();
             if chain_info.best_number.saturating_sub(block_number) > max_window {
                 return Err(EthApiError::ExceedsMaxProofWindow.into())
             }
 
             self.spawn_blocking_io_fut(move |this| async move {
+                let state_start = std::time::Instant::now();
+                tracing::debug!(
+                    target: "rpc::eth::proof",
+                    ?block_id,
+                    "Getting state provider for block"
+                );
+
                 let state = this.state_at_block_id(block_id).await?;
+
+                tracing::debug!(
+                    target: "rpc::eth::proof",
+                    state_elapsed_ms = state_start.elapsed().as_millis(),
+                    total_elapsed_ms = start.elapsed().as_millis(),
+                    "State provider acquired"
+                );
+
                 let storage_keys = keys.iter().map(|key| key.as_b256()).collect::<Vec<_>>();
+
+                let proof_start = std::time::Instant::now();
+                tracing::debug!(
+                    target: "rpc::eth::proof",
+                    ?address,
+                    storage_keys_count = storage_keys.len(),
+                    "Generating Merkle proof"
+                );
+
                 let proof = state
                     .proof(Default::default(), address, &storage_keys)
                     .map_err(Self::Error::from_eth_err)?;
+
+                tracing::debug!(
+                    target: "rpc::eth::proof",
+                    proof_elapsed_ms = proof_start.elapsed().as_millis(),
+                    total_elapsed_ms = start.elapsed().as_millis(),
+                    "Merkle proof generated successfully"
+                );
+
                 Ok(proof.into_eip1186_response(keys))
             })
             .await
@@ -222,13 +280,40 @@ pub trait LoadState:
         Self: SpawnBlocking,
     {
         async move {
+            let start = std::time::Instant::now();
+            tracing::debug!(
+                target: "rpc::eth::state",
+                ?at,
+                "state_at_block_id: Getting state provider"
+            );
+
             if at.is_pending() &&
                 let Ok(Some(state)) = self.local_pending_state().await
             {
+                tracing::debug!(
+                    target: "rpc::eth::state",
+                    elapsed_ms = start.elapsed().as_millis(),
+                    "state_at_block_id: Using pending state"
+                );
                 return Ok(state)
             }
 
-            self.provider().state_by_block_id(at).map_err(Self::Error::from_eth_err)
+            tracing::debug!(
+                target: "rpc::eth::state",
+                ?at,
+                "state_at_block_id: Calling provider.state_by_block_id"
+            );
+
+            let result = self.provider().state_by_block_id(at).map_err(Self::Error::from_eth_err);
+
+            tracing::debug!(
+                target: "rpc::eth::state",
+                elapsed_ms = start.elapsed().as_millis(),
+                is_ok = result.is_ok(),
+                "state_at_block_id: provider.state_by_block_id completed"
+            );
+
+            result
         }
     }
 

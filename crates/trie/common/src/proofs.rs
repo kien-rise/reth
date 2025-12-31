@@ -221,6 +221,13 @@ impl MultiProof {
         address: Address,
         slots: &[B256],
     ) -> Result<AccountProof, alloy_rlp::Error> {
+        tracing::debug!(
+            target: "trie::proof::common",
+            ?address,
+            slots_count = slots.len(),
+            "MultiProof::account_proof: Starting account proof construction"
+        );
+
         let hashed_address = keccak256(address);
         let nibbles = Nibbles::unpack(hashed_address);
 
@@ -230,6 +237,12 @@ impl MultiProof {
             .into_iter()
             .map(|(_, node)| node)
             .collect::<Vec<_>>();
+
+        tracing::debug!(
+            target: "trie::proof::common",
+            proof_nodes_count = proof.len(),
+            "MultiProof::account_proof: Retrieved account proof nodes"
+        );
 
         // Inspect the last node in the proof. If it's a leaf node with matching suffix,
         // then the node contains the encoded trie account.
@@ -248,18 +261,50 @@ impl MultiProof {
             None
         };
 
+        tracing::debug!(
+            target: "trie::proof::common",
+            account_found = info.is_some(),
+            "MultiProof::account_proof: Decoded account info"
+        );
+
         // Retrieve proofs for requested storage slots.
         let storage_multiproof = self.storages.get(&hashed_address);
         let storage_root = storage_multiproof.map(|m| m.root).unwrap_or(EMPTY_ROOT_HASH);
+
+        tracing::debug!(
+            target: "trie::proof::common",
+            has_storage_multiproof = storage_multiproof.is_some(),
+            ?storage_root,
+            "MultiProof::account_proof: Processing storage proofs"
+        );
+
         let mut storage_proofs = Vec::with_capacity(slots.len());
-        for slot in slots {
+        for (idx, slot) in slots.iter().enumerate() {
             let proof = if let Some(multiproof) = &storage_multiproof {
                 multiproof.storage_proof(*slot)?
             } else {
                 StorageProof::new(*slot)
             };
+
+            if idx == 0 || idx == slots.len() - 1 {
+                tracing::debug!(
+                    target: "trie::proof::common",
+                    slot_index = idx,
+                    ?slot,
+                    proof_nodes = proof.proof.len(),
+                    "MultiProof::account_proof: Generated storage proof"
+                );
+            }
+
             storage_proofs.push(proof);
         }
+
+        tracing::debug!(
+            target: "trie::proof::common",
+            storage_proofs_count = storage_proofs.len(),
+            "MultiProof::account_proof: Account proof construction completed"
+        );
+
         Ok(AccountProof { address, info, proof, storage_root, storage_proofs })
     }
 
@@ -475,7 +520,14 @@ impl StorageMultiProof {
 
     /// Return storage proofs for the target storage slot (unhashed).
     pub fn storage_proof(&self, slot: B256) -> Result<StorageProof, alloy_rlp::Error> {
-        let nibbles = Nibbles::unpack(keccak256(slot));
+        tracing::debug!(
+            target: "trie::proof::common",
+            ?slot,
+            "StorageMultiProof::storage_proof: Starting storage proof retrieval"
+        );
+
+        let hashed_slot = keccak256(slot);
+        let nibbles = Nibbles::unpack(hashed_slot);
 
         // Retrieve the storage proof.
         let proof = self
@@ -484,6 +536,12 @@ impl StorageMultiProof {
             .sorted_by(|a, b| a.0.cmp(b.0))
             .map(|(_, node)| node.clone())
             .collect::<Vec<_>>();
+
+        tracing::debug!(
+            target: "trie::proof::common",
+            proof_nodes_count = proof.len(),
+            "StorageMultiProof::storage_proof: Retrieved storage proof nodes"
+        );
 
         // Inspect the last node in the proof. If it's a leaf node with matching suffix,
         // then the node contains the encoded slot value.
@@ -496,6 +554,12 @@ impl StorageMultiProof {
             }
             U256::ZERO
         };
+
+        tracing::debug!(
+            target: "trie::proof::common",
+            ?value,
+            "StorageMultiProof::storage_proof: Storage proof retrieval completed"
+        );
 
         Ok(StorageProof { key: slot, nibbles, value, proof })
     }
@@ -990,8 +1054,8 @@ mod tests {
         // populate some targets
         let (addr1, addr2) = (B256::random(), B256::random());
         let (slot1, slot2) = (B256::random(), B256::random());
-        targets.insert(addr1, std::iter::once(slot1).collect());
-        targets.insert(addr2, std::iter::once(slot2).collect());
+        targets.insert(addr1, core::iter::once(slot1).collect());
+        targets.insert(addr2, core::iter::once(slot2).collect());
 
         let mut retained = targets.clone();
         retained.retain_difference(&Default::default());

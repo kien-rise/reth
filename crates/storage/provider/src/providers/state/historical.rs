@@ -120,9 +120,21 @@ impl<'b, Provider: DBProvider + BlockNumReader> HistoricalStateProviderRef<'b, P
 
     /// Retrieve revert hashed state for this history provider.
     fn revert_state(&self) -> ProviderResult<HashedPostStateSorted> {
+        let start = std::time::Instant::now();
+        tracing::debug!(
+            target: "provider::historical_sp",
+            block_number = self.block_number,
+            "revert_state: Starting to retrieve revert state"
+        );
+
         if !self.lowest_available_blocks.is_account_history_available(self.block_number) ||
             !self.lowest_available_blocks.is_storage_history_available(self.block_number)
         {
+            tracing::debug!(
+                target: "provider::historical_sp",
+                block_number = self.block_number,
+                "revert_state: State at block is pruned"
+            );
             return Err(ProviderError::StateAtBlockPruned(self.block_number))
         }
 
@@ -134,8 +146,27 @@ impl<'b, Provider: DBProvider + BlockNumReader> HistoricalStateProviderRef<'b, P
             );
         }
 
-        HashedPostStateSorted::from_reverts::<KeccakKeyHasher>(self.tx(), self.block_number..)
-            .map_err(ProviderError::from)
+        tracing::debug!(
+            target: "provider::historical_sp",
+            block_number = self.block_number,
+            "revert_state: Calling HashedPostStateSorted::from_reverts"
+        );
+
+        let reverts_start = std::time::Instant::now();
+        let result =
+            HashedPostStateSorted::from_reverts::<KeccakKeyHasher>(self.tx(), self.block_number..)
+                .map_err(ProviderError::from);
+
+        tracing::debug!(
+            target: "provider::historical_sp",
+            block_number = self.block_number,
+            reverts_elapsed_ms = reverts_start.elapsed().as_millis(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            is_ok = result.is_ok(),
+            "revert_state: Completed"
+        );
+
+        result
     }
 
     /// Retrieve revert hashed storage for this history provider and target address.
@@ -374,9 +405,46 @@ impl<Provider: DBProvider + BlockNumReader> StateProofProvider
         address: Address,
         slots: &[B256],
     ) -> ProviderResult<AccountProof> {
-        input.prepend(self.revert_state()?.into());
+        let start = std::time::Instant::now();
+        tracing::debug!(
+            target: "providers::state::historical",
+            ?address,
+            slots_count = slots.len(),
+            block_number = self.block_number,
+            "HistoricalStateProvider::proof: Starting proof generation"
+        );
+
+        let revert_start = std::time::Instant::now();
+        let revert_state = self.revert_state()?;
+        tracing::debug!(
+            target: "providers::state::historical",
+            elapsed_ms = revert_start.elapsed().as_millis(),
+            "HistoricalStateProvider::proof: Got revert state"
+        );
+
+        input.prepend(revert_state.into());
+
+        let proof_start = std::time::Instant::now();
         let proof = <Proof<_, _> as DatabaseProof>::from_tx(self.tx());
-        proof.overlay_account_proof(input, address, slots).map_err(ProviderError::from)
+        tracing::debug!(
+            target: "providers::state::historical",
+            elapsed_ms = proof_start.elapsed().as_millis(),
+            "HistoricalStateProvider::proof: Created proof instance"
+        );
+
+        let overlay_start = std::time::Instant::now();
+        let result =
+            proof.overlay_account_proof(input, address, slots).map_err(ProviderError::from);
+
+        tracing::debug!(
+            target: "providers::state::historical",
+            overlay_elapsed_ms = overlay_start.elapsed().as_millis(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            is_ok = result.is_ok(),
+            "HistoricalStateProvider::proof: Completed overlay_account_proof"
+        );
+
+        result
     }
 
     fn multiproof(

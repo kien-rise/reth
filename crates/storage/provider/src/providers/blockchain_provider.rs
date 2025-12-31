@@ -550,13 +550,49 @@ impl<N: ProviderNodeTypes> StateProviderFactory for BlockchainProvider<N> {
         &self,
         block_number: BlockNumber,
     ) -> ProviderResult<StateProviderBox> {
+        let start = std::time::Instant::now();
         trace!(target: "providers::blockchain", ?block_number, "Getting history by block number");
+
         let provider = self.consistent_provider()?;
+        tracing::debug!(
+            target: "providers::blockchain",
+            block_number,
+            elapsed_ms = start.elapsed().as_millis(),
+            "history_by_block_number: Got consistent provider"
+        );
+
         provider.ensure_canonical_block(block_number)?;
+        tracing::debug!(
+            target: "providers::blockchain",
+            block_number,
+            elapsed_ms = start.elapsed().as_millis(),
+            "history_by_block_number: Ensured canonical block"
+        );
+
         let hash = provider
             .block_hash(block_number)?
             .ok_or_else(|| ProviderError::HeaderNotFound(block_number.into()))?;
-        provider.into_state_provider_at_block_hash(hash)
+
+        tracing::debug!(
+            target: "providers::blockchain",
+            block_number,
+            ?hash,
+            elapsed_ms = start.elapsed().as_millis(),
+            "history_by_block_number: Got block hash, calling into_state_provider_at_block_hash"
+        );
+
+        let result = provider.into_state_provider_at_block_hash(hash);
+
+        tracing::debug!(
+            target: "providers::blockchain",
+            block_number,
+            ?hash,
+            is_ok = result.is_ok(),
+            total_elapsed_ms = start.elapsed().as_millis(),
+            "history_by_block_number: Completed"
+        );
+
+        result
     }
 
     fn history_by_block_hash(&self, block_hash: BlockHash) -> ProviderResult<StateProviderBox> {
