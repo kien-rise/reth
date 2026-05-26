@@ -1,7 +1,7 @@
 use crate::{
     hashed_cursor::{HashedCursor, HashedCursorFactory},
     prefix_set::TriePrefixSetsMut,
-    proof::{Proof, ProofTrieNodeProviderFactory},
+    proof::{Proof, ProofTrieNodeProviderFactory, StorageProof},
     trie_cursor::TrieCursorFactory,
 };
 use alloy_rlp::EMPTY_STRING_CODE;
@@ -21,7 +21,7 @@ use reth_execution_errors::{
 };
 use reth_trie_common::{MultiProofTargets, Nibbles};
 use reth_trie_sparse::{
-    provider::{RevealedNode, TrieNodeProvider, TrieNodeProviderFactory},
+    provider::{pad_path_to_key, RevealedNode, TrieNodeProvider, TrieNodeProviderFactory},
     SerialSparseTrie, SparseStateTrie,
 };
 use std::sync::mpsc;
@@ -146,8 +146,14 @@ where
         }
 
         let (tx, rx) = mpsc::channel();
+        // Clone the cursor factories so they remain available for on-demand proof
+        // fetches during the retry loop below. The blinded_provider_factory also
+        // needs its own copies, hence the clones rather than moves.
         let blinded_provider_factory = WitnessTrieNodeProviderFactory::new(
-            ProofTrieNodeProviderFactory::new(self.trie_cursor_factory, self.hashed_cursor_factory),
+            ProofTrieNodeProviderFactory::new(
+                self.trie_cursor_factory.clone(),
+                self.hashed_cursor_factory.clone(),
+            ),
             tx,
         );
         let mut sparse_trie = SparseStateTrie::<SerialSparseTrie>::new();
@@ -158,29 +164,109 @@ where
             proof_targets.into_iter().sorted_unstable_by_key(|(ha, _)| *ha)
         {
             // Update storage trie first.
-            let provider = blinded_provider_factory.storage_node_provider(hashed_address);
             let storage = state.storages.get(&hashed_address);
-            let storage_trie = sparse_trie.storage_trie_mut(&hashed_address).ok_or(
-                SparseStateTrieErrorKind::SparseStorageTrie(
-                    hashed_address,
-                    SparseTrieErrorKind::Blind,
-                ),
-            )?;
-            for hashed_slot in hashed_slots.into_iter().sorted_unstable() {
-                let storage_nibbles = Nibbles::unpack(hashed_slot);
-                let maybe_leaf_value = storage
-                    .and_then(|s| s.storage.get(&hashed_slot))
-                    .filter(|v| !v.is_zero())
-                    .map(|v| alloy_rlp::encode_fixed_size(v).to_vec());
+            let hashed_slots: Vec<_> = hashed_slots.into_iter().sorted_unstable().collect();
 
-                if let Some(value) = maybe_leaf_value {
-                    storage_trie.update_leaf(storage_nibbles, value, &provider).map_err(|err| {
-                        SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())
-                    })?;
-                } else {
-                    storage_trie.remove_leaf(&storage_nibbles, &provider).map_err(|err| {
-                        SparseStateTrieErrorKind::SparseStorageTrie(hashed_address, err.into_kind())
-                    })?;
+            // Process all storage slots for this account with retry on
+            // NodeNotFoundInProvider. That error fires when a leaf removal collapses
+            // a branch and the remaining sibling is a leaf whose hashed key diverges
+            // from the zero-padded probe that ProofBlindedStorageProvider uses. We
+            // recover by seeking the actual slot key in the database and fetching a
+            // targeted proof that does include the leaf at the needed trie path.
+            let mut start = 0;
+            loop {
+                // Hold storage_trie inside a block so the mutable borrow on
+                // sparse_trie is released before the potential reveal_storage_multiproof
+                // call below.
+                let missing = {
+                    let provider =
+                        blinded_provider_factory.storage_node_provider(hashed_address);
+                    let storage_trie =
+                        sparse_trie.storage_trie_mut(&hashed_address).ok_or(
+                            SparseStateTrieErrorKind::SparseStorageTrie(
+                                hashed_address,
+                                SparseTrieErrorKind::Blind,
+                            ),
+                        )?;
+
+                    let mut missing: Option<(usize, Nibbles)> = None;
+                    for (i, &hashed_slot) in hashed_slots[start..].iter().enumerate() {
+                        let storage_nibbles = Nibbles::unpack(hashed_slot);
+                        let maybe_leaf_value = storage
+                            .and_then(|s| s.storage.get(&hashed_slot))
+                            .filter(|v| !v.is_zero())
+                            .map(|v| alloy_rlp::encode_fixed_size(v).to_vec());
+
+                        let result = if let Some(value) = maybe_leaf_value {
+                            storage_trie.update_leaf(storage_nibbles, value, &provider)
+                        } else {
+                            storage_trie.remove_leaf(&storage_nibbles, &provider)
+                        };
+
+                        if let Err(err) = result {
+                            match err.into_kind() {
+                                SparseTrieErrorKind::NodeNotFoundInProvider { path } => {
+                                    missing = Some((start + i, path));
+                                    break;
+                                }
+                                kind => {
+                                    return Err(SparseStateTrieErrorKind::SparseStorageTrie(
+                                        hashed_address,
+                                        kind,
+                                    )
+                                    .into())
+                                }
+                            }
+                        }
+                    }
+                    missing
+                    // storage_trie and provider are dropped here, releasing the borrow
+                };
+
+                match missing {
+                    None => break, // all remaining slots processed successfully
+                    Some((failed_idx, path)) => {
+                        // Find the first actual storage slot with a hashed key >= the
+                        // zero-padded path. This gives us a real key whose proof will
+                        // include the leaf node at `path` as a retained target.
+                        let min_key = pad_path_to_key(&path);
+                        let mut cursor = self
+                            .hashed_cursor_factory
+                            .hashed_storage_cursor(hashed_address)
+                            .map_err(StateProofError::from)?;
+                        let actual_key = cursor
+                            .seek(min_key)
+                            .map_err(StateProofError::from)?
+                            .map(|(k, _)| k)
+                            .ok_or_else(|| {
+                                // No slot found under this path — propagate original error.
+                                TrieWitnessError::from(
+                                    SparseStateTrieErrorKind::SparseStorageTrie(
+                                        hashed_address,
+                                        SparseTrieErrorKind::NodeNotFoundInProvider { path },
+                                    ),
+                                )
+                            })?;
+
+                        let proof = StorageProof::new_hashed(
+                            &self.trie_cursor_factory,
+                            &self.hashed_cursor_factory,
+                            hashed_address,
+                        )
+                        .storage_multiproof(B256Set::from_iter([actual_key]))?;
+
+                        // Record any new nodes from the proof in the witness.
+                        for node in proof.subtree.values() {
+                            if let Entry::Vacant(entry) =
+                                self.witness.entry(keccak256(node.as_ref()))
+                            {
+                                entry.insert(node.clone());
+                            }
+                        }
+
+                        sparse_trie.reveal_storage_multiproof(hashed_address, proof)?;
+                        start = failed_idx; // retry from the slot that failed
+                    }
                 }
             }
 
